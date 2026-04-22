@@ -55,7 +55,7 @@ float calc_shadow(vec4 frag_pos_light_space, vec3 normal, vec3 light_dir) {
     float current_depth = proj_coords.z;
     
     // Bias to prevent shadow acne
-    float bias = max(0.005 * (1.0 - dot(normal, light_dir)), 0.0005);
+    float bias = max(0.02 * (1.0 - dot(normal, light_dir)), 0.005);
     
     // PCF (Percentage-Closer Filtering)
     float shadow = 0.0;
@@ -70,6 +70,7 @@ float calc_shadow(vec4 frag_pos_light_space, vec3 normal, vec3 light_dir) {
     
     return shadow;
 }
+
 
 // ------- Blinn-Phong helpers -------
 vec3 calc_point_light(PointLight light, vec3 normal, vec3 frag_pos, vec3 view_dir) {

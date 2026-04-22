@@ -142,40 +142,52 @@ fn main() {
     };
 
     // Load STL meshes
-    let stl_room_opt = load_stl_mesh("../Models/The art gallery.stl");
-    let stl_room_mesh = stl_room_opt.map(|(v, i)| unsafe { Mesh::new(&gl, &v, &i) });
+    let mut stl_room_aabb = None;
+    // Tự động scale 1000 lần để khớp với đơn vị Mét
+    let stl_room_opt = load_stl_mesh("../Models/The art gallery.stl", 1000.0);
 
-    let furniture_opt = load_stl_mesh("../Models/furniture.stl");
-    let furniture_mesh = furniture_opt.map(|(v, i)| unsafe { Mesh::new(&gl, &v, &i) });
+    let stl_room_mesh = if let Some((v, i, aabb)) = stl_room_opt {
+        println!("✅ STL Room loaded successfully!");
+        println!("   Scaled Bounds: Min({:?}), Max({:?})", aabb.min, aabb.max);
+        stl_room_aabb = Some(aabb);
+        Some(unsafe { Mesh::new(&gl, &v, &i) })
+    } else {
+        println!("⚠️ STL Room not found. Using procedural fallback.");
+        None
+    };
+
+    let furniture_opt = load_stl_mesh("./Models/furniture.stl", 1000.0)
+        .or_else(|| load_stl_mesh("../Models/furniture.stl", 1000.0));
+    let furniture_mesh = furniture_opt.map(|(v, i, _)| unsafe { Mesh::new(&gl, &v, &i) });
 
     // Khung tranh (Framed Paintings)
     let painting_geo = build_framed_painting(1.2, 1.2, 0.05);
     let frame_mesh = unsafe { Mesh::new(&gl, &painting_geo.frame.0, &painting_geo.frame.1) };
     let art_mesh = unsafe { Mesh::new(&gl, &painting_geo.art.0, &painting_geo.art.1) };
 
-    // Vị trí 3 bức ảnh trong phòng chữ L
+    // Vị trí các tranh: Art 2 và Art 3 đối diện nhau trong hành lang nhánh
     let painting_transforms = vec![
-        // Art 1: Tường trái, giữa hành lang
+        // Art 1: Giữ nguyên ở hành lang dài (tường trái)
         Mat4::from_rotation_translation(
             Quat::from_rotation_y(std::f32::consts::FRAC_PI_2),
-            Vec3::new(-1.98, 1.5, -4.0),
+            Vec3::new(0.15, 1.5, -4.5),
         ),
-        // Art 2: Tường phải, giữa hành lang
+        // Art 2: Đối diện Art 3 trong hành lang nhánh (Tường phía trên)
         Mat4::from_rotation_translation(
-            Quat::from_rotation_y(-std::f32::consts::FRAC_PI_2),
-            Vec3::new(1.98, 1.5, -4.0),
+            Quat::from_rotation_y(std::f32::consts::PI), // Xoay 180 độ
+            Vec3::new(5.5, 1.5, -0.15),
         ),
-        // Art 3: Tường cuối hành lang ngang
+        // Art 3: Hành lang nhánh (Tường phía dưới), dịch về bên phải (X lớn)
         Mat4::from_rotation_translation(
-            Quat::from_rotation_y(-std::f32::consts::FRAC_PI_2),
-            Vec3::new(9.98, 1.5, 4.0),
+            Quat::from_rotation_y(0.0), // Nhìn về phía Z dương
+            Vec3::new(5.5, 1.5, -1.85),
         ),
     ];
 
     // ── Textures – 3 bức tranh ───────────────────────────────────────
-    let tex_left = unsafe { load_texture(&gl, "assets/art1.jpg") };
-    let tex_right = unsafe { load_texture(&gl, "assets/art2.jpg") };
-    let tex_end = unsafe { load_texture(&gl, "assets/art3.jpg") };
+    let tex_left = unsafe { load_texture(&gl, "./assets/art1.jpg") };
+    let tex_right = unsafe { load_texture(&gl, "./assets/art2.jpg") };
+    let tex_end = unsafe { load_texture(&gl, "./assets/art3.jpg") };
     let textures = vec![tex_left, tex_right, tex_end];
 
     // ── Lighting ─────────────────────────────────────────────────────
@@ -321,29 +333,53 @@ fn main() {
                         let next_pos = camera.head_pos + dir * speed;
 
                         // Simple AABB Collision for the L-shaped room walls
-                        // Main hallway: x in [-2, 2], z in [-10, 6]
-                        // Branch hallway: x in [2, 10], z in [2, 6]
                         let r = 0.4; // head radius
-                        let in_main = next_pos.x > -2.0 + r
-                            && next_pos.x < 2.0 - r
-                            && next_pos.z > -10.0 + r
-                            && next_pos.z < 6.0 - r;
-                        let in_branch = next_pos.x > 2.0 - r
-                            && next_pos.x < 10.0 - r
-                            && next_pos.z > 2.0 + r
-                            && next_pos.z < 6.0 - r;
+                        let mut allowed = false;
 
-                        // Check if current position is already outside (to prevent getting stuck)
-                        let curr_in_main = camera.head_pos.x > -2.0 + r
-                            && camera.head_pos.x < 2.0 - r
-                            && camera.head_pos.z > -10.0 + r
-                            && camera.head_pos.z < 6.0 - r;
-                        let curr_in_branch = camera.head_pos.x > 2.0 - r
-                            && camera.head_pos.x < 10.0 - r
-                            && camera.head_pos.z > 2.0 + r
-                            && camera.head_pos.z < 6.0 - r;
+                        if let Some(ref aabb) = stl_room_aabb {
+                            // Dynamic collision with STL AABB (xz-plane)
+                            // Cộng thêm 0.1m độ dày tường (shell) vào giới hạn va chạm
+                            let shell = 0.1;
+                            allowed = next_pos.x > aabb.min[0] + r + shell
+                                && next_pos.x < aabb.max[0] - r - shell
+                                && next_pos.z > aabb.min[2] + r + shell
+                                && next_pos.z < aabb.max[2] - r - shell;
+                        } else {
+                            // Fallback to procedural L-room bounds
+                            // Main hallway: x in [-2, 2], z in [-10, 6]
+                            // Branch hallway: x in [2, 10], z in [2, 6]
+                            let in_main = next_pos.x > -2.0 + r
+                                && next_pos.x < 2.0 - r
+                                && next_pos.z > -10.0 + r
+                                && next_pos.z < 6.0 - r;
+                            let in_branch = next_pos.x > 2.0 - r
+                                && next_pos.x < 10.0 - r
+                                && next_pos.z > 2.0 + r
+                                && next_pos.z < 6.0 - r;
+                            allowed = in_main || in_branch;
+                        }
 
-                        if in_main || in_branch || (!curr_in_main && !curr_in_branch) {
+                        // Recovery logic if outside (to prevent getting stuck)
+                        let mut current_outside = true;
+                        if let Some(ref aabb) = stl_room_aabb {
+                            let shell = 0.1;
+                            current_outside = !(camera.head_pos.x > aabb.min[0] + r + shell
+                                && camera.head_pos.x < aabb.max[0] - r - shell
+                                && camera.head_pos.z > aabb.min[2] + r + shell
+                                && camera.head_pos.z < aabb.max[2] - r - shell);
+                        } else {
+                            let curr_in_main = camera.head_pos.x > -2.0 + r
+                                && camera.head_pos.x < 2.0 - r
+                                && camera.head_pos.z > -10.0 + r
+                                && camera.head_pos.z < 6.0 - r;
+                            let curr_in_branch = camera.head_pos.x > 2.0 - r
+                                && camera.head_pos.x < 10.0 - r
+                                && camera.head_pos.z > 2.0 + r
+                                && camera.head_pos.z < 6.0 - r;
+                            current_outside = !(curr_in_main || curr_in_branch);
+                        }
+
+                        if allowed || current_outside {
                             camera.move_head(fwd, right, dt);
                         }
                     }
@@ -355,13 +391,13 @@ fn main() {
                         CameraMode::CCTV => camera.cctv_pos,
                     };
 
-                    // Spotlight setup
-                    let spot_pos = Vec3::new(0.0, 2.9, 0.0);
-                    let spot_dir = Vec3::new(0.0, -1.0, 0.0).normalize();
+                    // Spotlight setup - Đặt chếch để tạo vệt sáng trên tường góc cua
+                    let spot_pos = Vec3::new(2.0, 2.9, -8.0);
+                    let spot_dir = Vec3::new(0.0, -0.5, -0.5).normalize(); // Chiếu chếch vào tường cuối
                     let light_projection =
-                        Mat4::perspective_rh_gl(90.0_f32.to_radians(), 1.0, 0.1, 20.0);
+                        Mat4::perspective_rh_gl(90.0_f32.to_radians(), 1.0, 0.1, 30.0);
                     let light_view =
-                        Mat4::look_at_rh(spot_pos, spot_pos + spot_dir, Vec3::new(0.0, 0.0, -1.0));
+                        Mat4::look_at_rh(spot_pos, spot_pos + spot_dir, Vec3::new(0.0, 1.0, 0.0));
                     let light_space_matrix = light_projection * light_view;
 
                     let identity = Mat4::IDENTITY;
@@ -401,10 +437,11 @@ fn main() {
                                 }
                             }
 
-                            // Furniture
+                            // Furniture - Đặt ở góc phòng
                             if let Some(ref furn) = furniture_mesh {
-                                let f_model = Mat4::from_translation(Vec3::new(2.0, 0.0, 4.0))
-                                    * Mat4::from_scale(Vec3::splat(0.5));
+                                // Đặt ở góc (X=1.0, Z=-8.5)
+                                let f_model = Mat4::from_translation(Vec3::new(1.0, 0.0, -8.5))
+                                    * Mat4::from_scale(Vec3::splat(1.0));
                                 shader.set_mat4(gl, "u_model", &f_model);
                                 if !is_depth_pass {
                                     shader.set_bool(gl, "u_use_texture", false);
@@ -485,7 +522,10 @@ fn main() {
                         room_shader.set_int(&gl, "u_shadow_map", 1);
                         gl.active_texture(glow::TEXTURE0);
 
+                        // Disable culling for the room to prevent "black walls" from the inside (back-faces)
+                        gl.disable(glow::CULL_FACE);
                         draw_scene(&gl, &room_shader, false);
+                        gl.enable(glow::CULL_FACE);
 
                         // ---- The Head (Chỉ vẽ khi ở chế độ CCTV) ----
                         if camera.mode == CameraMode::CCTV {

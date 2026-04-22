@@ -439,7 +439,13 @@ fn bytemuck_u32(data: &[u32]) -> &[u8] {
 // ──────────────────────────────────────────────────────────────
 //  STL Loader (Using mesh-loader)
 // ──────────────────────────────────────────────────────────────
-pub fn load_stl_mesh(path: &str) -> Option<(Vec<Vertex>, Vec<u32>)> {
+pub struct AABB {
+    pub min: [f32; 3],
+    pub max: [f32; 3],
+}
+
+pub fn load_stl_mesh(path: &str, scale: f32) -> Option<(Vec<Vertex>, Vec<u32>, AABB)> {
+
     let p = std::path::Path::new(path);
     if !p.exists() {
         println!("Warning: STL file not found at {}. Returning None.", path);
@@ -464,18 +470,36 @@ pub fn load_stl_mesh(path: &str) -> Option<(Vec<Vertex>, Vec<u32>)> {
     let mut verts = Vec::with_capacity(n);
     let mut idxs = Vec::with_capacity(mesh.faces.len() * 3);
 
+    let mut min = [f32::MAX, f32::MAX, f32::MAX];
+    let mut max = [f32::MIN, f32::MIN, f32::MIN];
+
     for i in 0..n {
-        let v = mesh.vertices[i];
-        let n_vec = if i < mesh.normals.len() {
+        let v_orig = mesh.vertices[i];
+        // Rotate Z-up to Y-up: (x, y, z) -> (x, z, -y)
+        let mut v = [
+            v_orig[0] * scale,
+            v_orig[2] * scale,
+            -v_orig[1] * scale
+        ];
+        
+        // Update AABB
+        for d in 0..3 {
+            if v[d] < min[d] { min[d] = v[d]; }
+            if v[d] > max[d] { max[d] = v[d]; }
+        }
+
+        let n_orig = if i < mesh.normals.len() {
             mesh.normals[i]
         } else {
-            [0.0, 1.0, 0.0]
+            [0.0, 0.0, 1.0]
         };
+        // Rotate normal as well
+        let n_vec = [n_orig[0], n_orig[2], -n_orig[1]];
 
         verts.push(Vertex {
             position: v,
             normal: n_vec,
-            tex_coord: [0.0, 0.0], // STLs inherently lack UVs, default to 0.0
+            tex_coord: [0.0, 0.0],
         });
     }
 
@@ -485,5 +509,6 @@ pub fn load_stl_mesh(path: &str) -> Option<(Vec<Vertex>, Vec<u32>)> {
         idxs.push(face[2]);
     }
 
-    Some((verts, idxs))
+    Some((verts, idxs, AABB { min, max }))
 }
+

@@ -36,7 +36,7 @@ pub struct Camera {
 impl Camera {
     pub fn new(aspect: f32) -> Self {
         Self {
-            head_pos: Vec3::new(0.0, 0.5, 0.0),
+            head_pos: Vec3::new(3.25, 0.5, -2.0),
             yaw: -std::f32::consts::FRAC_PI_2,
             pitch: 0.0,
             fov_y: 60_f32.to_radians(),
@@ -44,8 +44,8 @@ impl Camera {
             near: 0.1,
             far: 100.0,
             mode: CameraMode::POV,
-            cctv_pos: Vec3::new(0.0, 5.0, 0.0), // trên cao giữa phòng
-            cctv_target: Vec3::new(0.0, 0.0, -5.0), // nhìn xuống cuối hành lang
+            cctv_pos: Vec3::new(3.25, 3.0, -0.5), // Góc phòng cao
+            cctv_target: Vec3::new(3.25, 0.0, -5.0),
         }
     }
 
