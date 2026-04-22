@@ -36,7 +36,7 @@ pub struct Camera {
 impl Camera {
     pub fn new(aspect: f32) -> Self {
         Self {
-            head_pos: Vec3::new(0.0, 0.5, 8.0),
+            head_pos: Vec3::new(0.0, 0.5, 0.0),
             yaw: -std::f32::consts::FRAC_PI_2,
             pitch: 0.0,
             fov_y: 60_f32.to_radians(),
@@ -87,9 +87,6 @@ impl Camera {
         let f = self.forward() * Vec3::new(1.0, 0.0, 1.0); // chỉ di chuyển trên mặt phẳng XZ
         let r = self.right() * Vec3::new(1.0, 0.0, 1.0);
         self.head_pos += SPEED * dt * (f * fwd + r * right);
-        // Giới hạn không cho ra ngoài hành lang (w=4, d=10, bán kính cầu ~0.3)
-        self.head_pos.x = self.head_pos.x.clamp(-3.5, 3.5);
-        self.head_pos.z = self.head_pos.z.clamp(-9.5, 9.5);
         self.head_pos.y = 0.5; // luôn trên sàn
     }
 

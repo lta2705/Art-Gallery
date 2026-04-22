@@ -85,7 +85,9 @@ dependencies = [
  "glutin",
  "glutin-winit",
  "image",
+ "mesh-loader",
  "raw-window-handle 0.5.2",
+ "stl",
  "tobj",
  "winit",
 ]
@@ -150,6 +152,12 @@ name = "bytemuck"
 version = "1.25.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c8efb64bd706a16a1bdde310ae86b351e4d21550d98d056f22f8a7f7a2183fec"
+
+[[package]]
+name = "byteorder"
+version = "0.4.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "96c8b41881888cc08af32d47ac4edd52bc7fa27fef774be47a92443756451304"
 
 [[package]]
 name = "byteorder"
@@ -573,7 +581,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5690139d2f55868e080017335e4b94cb7414274c74f1669c84fb5feba2c9f69d"
 dependencies = [
  "bytemuck",
- "byteorder",
+ "byteorder 1.5.0",
  "color_quant",
  "jpeg-decoder",
  "num-traits",
@@ -727,6 +735,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "714098028fe011992e1c3962653c96b2d578c4b4bce9036e15ff220319b1e0e3"
 dependencies = [
  "libc",
+]
+
+[[package]]
+name = "mesh-loader"
+version = "0.1.13"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "47168834301d6956a01e8e0a7772891a40918067c18d02c34d0932739426b7d2"
+dependencies = [
+ "roxmltree",
 ]
 
 [[package]]
@@ -972,6 +989,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "roxmltree"
+version = "0.20.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6c20b6793b5c2fa6553b250154b78d6d0db37e72700ae35fad9387a46f487c97"
+
+[[package]]
 name = "rustix"
 version = "0.38.44"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1125,6 +1148,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "dd538fb6910ac1099850255cf94a94df6551fbdd602454387d0adb2d1ca6dead"
 dependencies = [
  "serde",
+]
+
+[[package]]
+name = "stl"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "466e72b3a9258f51f0562a01f2aea3717fb71d9997f4050c65c251a623926e12"
+dependencies = [
+ "byteorder 0.4.2",
 ]
 
 [[package]]

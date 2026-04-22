@@ -9,14 +9,18 @@ use glow::HasContext;
 #[repr(C, packed)]
 #[derive(Copy, Clone)]
 pub struct Vertex {
-    pub position:  [f32; 3],
-    pub normal:    [f32; 3],
+    pub position: [f32; 3],
+    pub normal: [f32; 3],
     pub tex_coord: [f32; 2],
 }
 
 impl Vertex {
     pub fn new(position: [f32; 3], normal: [f32; 3], tex_coord: [f32; 2]) -> Self {
-        Self { position, normal, tex_coord }
+        Self {
+            position,
+            normal,
+            tex_coord,
+        }
     }
 }
 
@@ -25,9 +29,9 @@ pub const VERTEX_SIZE: i32 = std::mem::size_of::<Vertex>() as i32;
 
 /// Mesh được upload lên GPU
 pub struct Mesh {
-    pub vao:         glow::VertexArray,
-    pub vbo:         glow::Buffer,
-    pub ebo:         glow::Buffer,
+    pub vao: glow::VertexArray,
+    pub vbo: glow::Buffer,
+    pub ebo: glow::Buffer,
     pub index_count: i32,
 }
 
@@ -69,7 +73,12 @@ impl Mesh {
 
         gl.bind_vertex_array(None);
 
-        Self { vao, vbo, ebo, index_count: indices.len() as i32 }
+        Self {
+            vao,
+            vbo,
+            ebo,
+            index_count: indices.len() as i32,
+        }
     }
 
     pub unsafe fn draw(&self, gl: &glow::Context) {
@@ -84,9 +93,9 @@ impl Mesh {
 //  Kích thước: rộng 4, cao 3, dài 20 (đơn vị OpenGL)
 // ──────────────────────────────────────────────────────────────
 pub struct LRoomMeshes {
-    pub floor:      (Vec<Vertex>, Vec<u32>),
-    pub ceiling:    (Vec<Vertex>, Vec<u32>),
-    pub walls:      Vec<(Vec<Vertex>, Vec<u32>)>,
+    pub floor: (Vec<Vertex>, Vec<u32>),
+    pub ceiling: (Vec<Vertex>, Vec<u32>),
+    pub walls: Vec<(Vec<Vertex>, Vec<u32>)>,
 }
 
 /// Tạo dữ liệu đỉnh cho căn phòng hình chữ L
@@ -100,16 +109,19 @@ pub fn build_l_room() -> LRoomMeshes {
     // |      |
     // P1-----P2
     let p1 = [-2.0, -10.0];
-    let p2 = [ 2.0, -10.0];
-    let p3 = [ 2.0,   2.0];
-    let p4 = [10.0,   2.0];
-    let p5 = [10.0,   6.0];
-    let p6 = [-2.0,   6.0];
+    let p2 = [2.0, -10.0];
+    let p3 = [2.0, 2.0];
+    let p4 = [10.0, 2.0];
+    let p5 = [10.0, 6.0];
+    let p6 = [-2.0, 6.0];
 
     // Helper tạo tường từ 2 điểm A, B trên XZ
     let create_wall = |a: [f32; 2], b: [f32; 2], normal: [f32; 3]| -> (Vec<Vertex>, Vec<u32>) {
         make_quad(
-            [a[0], 0.0, a[1]], [b[0], 0.0, b[1]], [b[0], H, b[1]], [a[0], H, a[1]],
+            [a[0], 0.0, a[1]],
+            [b[0], 0.0, b[1]],
+            [b[0], H, b[1]],
+            [a[0], H, a[1]],
             normal,
             true, // Vẫn giữ UV để sau này có thể dán tranh
         )
@@ -118,10 +130,10 @@ pub fn build_l_room() -> LRoomMeshes {
     // 6 mảng tường bao quanh
     let mut walls = Vec::new();
     walls.push(create_wall(p1, p2, [0.0, 0.0, -1.0])); // Đáy
-    walls.push(create_wall(p2, p3, [1.0, 0.0, 0.0]));  // Phải dưới
+    walls.push(create_wall(p2, p3, [1.0, 0.0, 0.0])); // Phải dưới
     walls.push(create_wall(p3, p4, [0.0, 0.0, -1.0])); // Bụng chữ L
-    walls.push(create_wall(p4, p5, [1.0, 0.0, 0.0]));  // Phải trên
-    walls.push(create_wall(p5, p6, [0.0, 0.0, 1.0]));  // Đỉnh
+    walls.push(create_wall(p4, p5, [1.0, 0.0, 0.0])); // Phải trên
+    walls.push(create_wall(p5, p6, [0.0, 0.0, 1.0])); // Đỉnh
     walls.push(create_wall(p6, p1, [-1.0, 0.0, 0.0])); // Trái dài
 
     // Sàn (L-shape) ghép từ 2 hình chữ nhật
@@ -129,9 +141,23 @@ pub fn build_l_room() -> LRoomMeshes {
     let mut floor_i = Vec::new();
 
     // Sàn 1: x:[-2, 2], z:[-10, 6]
-    let (v1, i1) = make_quad([-2.0, 0.0, -10.0], [2.0, 0.0, -10.0], [2.0, 0.0, 6.0], [-2.0, 0.0, 6.0], [0.0, 1.0, 0.0], false);
+    let (v1, i1) = make_quad(
+        [-2.0, 0.0, -10.0],
+        [2.0, 0.0, -10.0],
+        [2.0, 0.0, 6.0],
+        [-2.0, 0.0, 6.0],
+        [0.0, 1.0, 0.0],
+        false,
+    );
     // Sàn 2: x:[2, 10], z:[2, 6]
-    let (v2, i2) = make_quad([2.0, 0.0, 2.0], [10.0, 0.0, 2.0], [10.0, 0.0, 6.0], [2.0, 0.0, 6.0], [0.0, 1.0, 0.0], false);
+    let (v2, i2) = make_quad(
+        [2.0, 0.0, 2.0],
+        [10.0, 0.0, 2.0],
+        [10.0, 0.0, 6.0],
+        [2.0, 0.0, 6.0],
+        [0.0, 1.0, 0.0],
+        false,
+    );
 
     // Ghép vertices và indices
     floor_v.extend(v1);
@@ -150,12 +176,19 @@ pub fn build_l_room() -> LRoomMeshes {
     }
     let ceil_i = floor_i.clone();
 
-    LRoomMeshes { floor: (floor_v, floor_i), ceiling: (ceil_v, ceil_i), walls }
+    LRoomMeshes {
+        floor: (floor_v, floor_i),
+        ceiling: (ceil_v, ceil_i),
+        walls,
+    }
 }
 
 /// Tạo một mặt phẳng (quad = 2 tam giác) từ 4 điểm góc (counter-clockwise)
 fn make_quad(
-    p0: [f32; 3], p1: [f32; 3], p2: [f32; 3], p3: [f32; 3],
+    p0: [f32; 3],
+    p1: [f32; 3],
+    p2: [f32; 3],
+    p3: [f32; 3],
     normal: [f32; 3],
     texture: bool,
 ) -> (Vec<Vertex>, Vec<u32>) {
@@ -166,10 +199,26 @@ fn make_quad(
         [[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 1.0]]
     };
     let verts = vec![
-        Vertex { position: p0, normal, tex_coord: uvs[0] },
-        Vertex { position: p1, normal, tex_coord: uvs[1] },
-        Vertex { position: p2, normal, tex_coord: uvs[2] },
-        Vertex { position: p3, normal, tex_coord: uvs[3] },
+        Vertex {
+            position: p0,
+            normal,
+            tex_coord: uvs[0],
+        },
+        Vertex {
+            position: p1,
+            normal,
+            tex_coord: uvs[1],
+        },
+        Vertex {
+            position: p2,
+            normal,
+            tex_coord: uvs[2],
+        },
+        Vertex {
+            position: p3,
+            normal,
+            tex_coord: uvs[3],
+        },
     ];
     let idxs = vec![0, 1, 2, 0, 2, 3];
     (verts, idxs)
@@ -181,10 +230,10 @@ fn make_quad(
 pub fn build_sphere(stacks: u32, slices: u32, radius: f32) -> (Vec<Vertex>, Vec<u32>) {
     use std::f32::consts::PI;
     let mut verts = Vec::new();
-    let mut idxs  = Vec::new();
+    let mut idxs = Vec::new();
 
     for i in 0..=stacks {
-        let phi = PI * (i as f32) / (stacks as f32);   // 0 → π
+        let phi = PI * (i as f32) / (stacks as f32); // 0 → π
         for j in 0..=slices {
             let theta = 2.0 * PI * (j as f32) / (slices as f32); // 0 → 2π
 
@@ -192,11 +241,15 @@ pub fn build_sphere(stacks: u32, slices: u32, radius: f32) -> (Vec<Vertex>, Vec<
             let y = phi.cos();
             let z = phi.sin() * theta.sin();
 
-            let position  = [radius * x, radius * y, radius * z];
-            let normal    = [x, y, z];
+            let position = [radius * x, radius * y, radius * z];
+            let normal = [x, y, z];
             let tex_coord = [j as f32 / slices as f32, i as f32 / stacks as f32];
 
-            verts.push(Vertex { position, normal, tex_coord });
+            verts.push(Vertex {
+                position,
+                normal,
+                tex_coord,
+            });
         }
     }
 
@@ -218,14 +271,18 @@ pub fn build_sphere(stacks: u32, slices: u32, radius: f32) -> (Vec<Vertex>, Vec<
 /// Load một file .obj đơn giản dùng `tobj`.
 /// Trả về (vertices, indices) từ mesh đầu tiên.
 pub fn load_obj(path: &str) -> (Vec<Vertex>, Vec<u32>) {
-    let (models, _) = tobj::load_obj(path, &tobj::LoadOptions {
-        triangulate: true,
-        single_index: true,
-        ..Default::default()
-    }).expect("Failed to load OBJ");
+    let (models, _) = tobj::load_obj(
+        path,
+        &tobj::LoadOptions {
+            triangulate: true,
+            single_index: true,
+            ..Default::default()
+        },
+    )
+    .expect("Failed to load OBJ");
 
-    let mesh   = &models[0].mesh;
-    let n      = mesh.positions.len() / 3;
+    let mesh = &models[0].mesh;
+    let n = mesh.positions.len() / 3;
     let mut verts = Vec::with_capacity(n);
 
     for i in 0..n {
@@ -234,16 +291,24 @@ pub fn load_obj(path: &str) -> (Vec<Vertex>, Vec<u32>) {
         let pz = mesh.positions[3 * i + 2];
 
         let (nx, ny, nz) = if mesh.normals.len() == mesh.positions.len() {
-            (mesh.normals[3*i], mesh.normals[3*i+1], mesh.normals[3*i+2])
-        } else { (0.0, 1.0, 0.0) };
+            (
+                mesh.normals[3 * i],
+                mesh.normals[3 * i + 1],
+                mesh.normals[3 * i + 2],
+            )
+        } else {
+            (0.0, 1.0, 0.0)
+        };
 
         let (u, v) = if mesh.texcoords.len() / 2 == n {
-            (mesh.texcoords[2*i], mesh.texcoords[2*i+1])
-        } else { (0.0, 0.0) };
+            (mesh.texcoords[2 * i], mesh.texcoords[2 * i + 1])
+        } else {
+            (0.0, 0.0)
+        };
 
         verts.push(Vertex {
-            position:  [px, py, pz],
-            normal:    [nx, ny, nz],
+            position: [px, py, pz],
+            normal: [nx, ny, nz],
             tex_coord: [u, v],
         });
     }
@@ -253,14 +318,14 @@ pub fn load_obj(path: &str) -> (Vec<Vertex>, Vec<u32>) {
 
 pub struct FramedPainting {
     pub frame: (Vec<Vertex>, Vec<u32>),
-    pub art:   (Vec<Vertex>, Vec<u32>),
+    pub art: (Vec<Vertex>, Vec<u32>),
 }
 
 /// Tạo một bộ khung tranh 3D và tấm ảnh bên trong
 pub fn build_framed_painting(w: f32, h: f32, thick: f32) -> FramedPainting {
     let border = 0.1; // Độ rộng của viền khung
     let mut f_verts = Vec::new();
-    let mut f_idxs  = Vec::new();
+    let mut f_idxs = Vec::new();
 
     // Helper để thêm một box vào mảng vertices/indices
     let mut add_box = |min: [f32; 3], max: [f32; 3]| {
@@ -272,22 +337,37 @@ pub fn build_framed_painting(w: f32, h: f32, thick: f32) -> FramedPainting {
 
     // 4 thanh của khung tranh
     // Thanh dưới
-    add_box([-w/2.0-border, -h/2.0-border, 0.0], [w/2.0+border, -h/2.0, thick]);
+    add_box(
+        [-w / 2.0 - border, -h / 2.0 - border, 0.0],
+        [w / 2.0 + border, -h / 2.0, thick],
+    );
     // Thanh trên
-    add_box([-w/2.0-border, h/2.0, 0.0], [w/2.0+border, h/2.0+border, thick]);
+    add_box(
+        [-w / 2.0 - border, h / 2.0, 0.0],
+        [w / 2.0 + border, h / 2.0 + border, thick],
+    );
     // Thanh trái
-    add_box([-w/2.0-border, -h/2.0, 0.0], [-w/2.0, h/2.0, thick]);
+    add_box(
+        [-w / 2.0 - border, -h / 2.0, 0.0],
+        [-w / 2.0, h / 2.0, thick],
+    );
     // Thanh phải
-    add_box([w/2.0, -h/2.0, 0.0], [w/2.0+border, h/2.0, thick]);
+    add_box([w / 2.0, -h / 2.0, 0.0], [w / 2.0 + border, h / 2.0, thick]);
 
     // Tấm nền tranh (Art) - hơi thụt vào trong khung một chút
     let art = make_quad(
-        [-w/2.0, -h/2.0, 0.01], [w/2.0, -h/2.0, 0.01], [w/2.0, h/2.0, 0.01], [-w/2.0, h/2.0, 0.01],
+        [-w / 2.0, -h / 2.0, 0.01],
+        [w / 2.0, -h / 2.0, 0.01],
+        [w / 2.0, h / 2.0, 0.01],
+        [-w / 2.0, h / 2.0, 0.01],
         [0.0, 0.0, 1.0],
         true,
     );
 
-    FramedPainting { frame: (f_verts, f_idxs), art }
+    FramedPainting {
+        frame: (f_verts, f_idxs),
+        art,
+    }
 }
 
 /// Tạo một hình hộp (6 mặt)
@@ -296,10 +376,14 @@ fn build_box(min: [f32; 3], max: [f32; 3]) -> (Vec<Vertex>, Vec<u32>) {
     let mut i = Vec::new();
 
     let p = [
-        [min[0], min[1], min[2]], [max[0], min[1], min[2]],
-        [max[0], max[1], min[2]], [min[0], max[1], min[2]],
-        [min[0], min[1], max[2]], [max[0], min[1], max[2]],
-        [max[0], max[1], max[2]], [min[0], max[1], max[2]],
+        [min[0], min[1], min[2]],
+        [max[0], min[1], min[2]],
+        [max[0], max[1], min[2]],
+        [min[0], max[1], min[2]],
+        [min[0], min[1], max[2]],
+        [max[0], min[1], max[2]],
+        [max[0], max[1], max[2]],
+        [min[0], max[1], max[2]],
     ];
 
     // Front, Back, Left, Right, Top, Bottom
@@ -318,7 +402,14 @@ fn build_box(min: [f32; 3], max: [f32; 3]) -> (Vec<Vertex>, Vec<u32>) {
         v.push(Vertex::new(p[face_indices[1]], norm, [1.0, 0.0]));
         v.push(Vertex::new(p[face_indices[2]], norm, [1.0, 1.0]));
         v.push(Vertex::new(p[face_indices[3]], norm, [0.0, 1.0]));
-        i.extend_from_slice(&[offset, offset+1, offset+2, offset, offset+2, offset+3]);
+        i.extend_from_slice(&[
+            offset,
+            offset + 1,
+            offset + 2,
+            offset,
+            offset + 2,
+            offset + 3,
+        ]);
     }
 
     (v, i)
@@ -343,4 +434,56 @@ fn bytemuck_u32(data: &[u32]) -> &[u8] {
             data.len() * std::mem::size_of::<u32>(),
         )
     }
+}
+
+// ──────────────────────────────────────────────────────────────
+//  STL Loader (Using mesh-loader)
+// ──────────────────────────────────────────────────────────────
+pub fn load_stl_mesh(path: &str) -> Option<(Vec<Vertex>, Vec<u32>)> {
+    let p = std::path::Path::new(path);
+    if !p.exists() {
+        println!("Warning: STL file not found at {}. Returning None.", path);
+        return None;
+    }
+
+    let loader = mesh_loader::Loader::default().merge_meshes(true);
+    let scene = match loader.load(p) {
+        Ok(s) => s,
+        Err(e) => {
+            eprintln!("Failed to load STL {}: {:?}", path, e);
+            return None;
+        }
+    };
+
+    if scene.meshes.is_empty() {
+        return None;
+    }
+
+    let mesh = &scene.meshes[0];
+    let n = mesh.vertices.len();
+    let mut verts = Vec::with_capacity(n);
+    let mut idxs = Vec::with_capacity(mesh.faces.len() * 3);
+
+    for i in 0..n {
+        let v = mesh.vertices[i];
+        let n_vec = if i < mesh.normals.len() {
+            mesh.normals[i]
+        } else {
+            [0.0, 1.0, 0.0]
+        };
+
+        verts.push(Vertex {
+            position: v,
+            normal: n_vec,
+            tex_coord: [0.0, 0.0], // STLs inherently lack UVs, default to 0.0
+        });
+    }
+
+    for face in &mesh.faces {
+        idxs.push(face[0]);
+        idxs.push(face[1]);
+        idxs.push(face[2]);
+    }
+
+    Some((verts, idxs))
 }
