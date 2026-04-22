@@ -1,0 +1,27 @@
+[package]
+name = "art_gallery"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+# Cửa sổ và OpenGL context
+glutin        = "0.31"
+glutin-winit  = "0.4"
+winit         = "0.29"
+raw-window-handle = "0.5"
+
+# OpenGL function loader (safe wrapper)
+glow          = "0.13"
+
+# Toán học đồ họa (thay GLM)
+glam          = "0.27"
+
+# Nạp ảnh làm texture
+image         = { version = "0.24", default-features = false, features = ["jpeg", "png"] }
+
+# Nạp file OBJ (bonus - bóng đèn)
+tobj          = "4.0"
+
+[target.x86_64-pc-windows-gnu]
+linker = "x86_64-w64-mingw32-gcc"
+ar = "x86_64-w64-mingw32-ar"

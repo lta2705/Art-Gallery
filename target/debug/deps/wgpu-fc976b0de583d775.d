@@ -1,0 +1,14 @@
+/Users/MAC/GraphicDesign/Final/target/debug/deps/wgpu-fc976b0de583d775.d: /Users/MAC/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/wgpu-0.19.4/src/lib.rs /Users/MAC/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/wgpu-0.19.4/src/backend/mod.rs /Users/MAC/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/wgpu-0.19.4/src/backend/wgpu_core.rs /Users/MAC/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/wgpu-0.19.4/src/context.rs /Users/MAC/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/wgpu-0.19.4/src/util/mod.rs /Users/MAC/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/wgpu-0.19.4/src/util/belt.rs /Users/MAC/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/wgpu-0.19.4/src/util/device.rs /Users/MAC/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/wgpu-0.19.4/src/util/encoder.rs /Users/MAC/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/wgpu-0.19.4/src/util/init.rs /Users/MAC/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/wgpu-0.19.4/src/macros.rs
+
+/Users/MAC/GraphicDesign/Final/target/debug/deps/libwgpu-fc976b0de583d775.rmeta: /Users/MAC/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/wgpu-0.19.4/src/lib.rs /Users/MAC/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/wgpu-0.19.4/src/backend/mod.rs /Users/MAC/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/wgpu-0.19.4/src/backend/wgpu_core.rs /Users/MAC/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/wgpu-0.19.4/src/context.rs /Users/MAC/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/wgpu-0.19.4/src/util/mod.rs /Users/MAC/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/wgpu-0.19.4/src/util/belt.rs /Users/MAC/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/wgpu-0.19.4/src/util/device.rs /Users/MAC/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/wgpu-0.19.4/src/util/encoder.rs /Users/MAC/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/wgpu-0.19.4/src/util/init.rs /Users/MAC/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/wgpu-0.19.4/src/macros.rs
+
+/Users/MAC/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/wgpu-0.19.4/src/lib.rs:
+/Users/MAC/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/wgpu-0.19.4/src/backend/mod.rs:
+/Users/MAC/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/wgpu-0.19.4/src/backend/wgpu_core.rs:
+/Users/MAC/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/wgpu-0.19.4/src/context.rs:
+/Users/MAC/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/wgpu-0.19.4/src/util/mod.rs:
+/Users/MAC/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/wgpu-0.19.4/src/util/belt.rs:
+/Users/MAC/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/wgpu-0.19.4/src/util/device.rs:
+/Users/MAC/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/wgpu-0.19.4/src/util/encoder.rs:
+/Users/MAC/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/wgpu-0.19.4/src/util/init.rs:
+/Users/MAC/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/wgpu-0.19.4/src/macros.rs:

@@ -1,0 +1,346 @@
+//! Module A – Geometry & Environment
+//!
+//! Định nghĩa Vertex, tạo dữ liệu phòng tranh (hành lang dài),
+//! hình cầu (The Head), và upload dữ liệu lên GPU.
+
+use glow::HasContext;
+
+/// Cấu trúc đỉnh gồm position (xyz), normal (xyz), tex_coord (uv)
+#[repr(C, packed)]
+#[derive(Copy, Clone)]
+pub struct Vertex {
+    pub position:  [f32; 3],
+    pub normal:    [f32; 3],
+    pub tex_coord: [f32; 2],
+}
+
+impl Vertex {
+    pub fn new(position: [f32; 3], normal: [f32; 3], tex_coord: [f32; 2]) -> Self {
+        Self { position, normal, tex_coord }
+    }
+}
+
+/// Kích thước byte của một Vertex
+pub const VERTEX_SIZE: i32 = std::mem::size_of::<Vertex>() as i32;
+
+/// Mesh được upload lên GPU
+pub struct Mesh {
+    pub vao:         glow::VertexArray,
+    pub vbo:         glow::Buffer,
+    pub ebo:         glow::Buffer,
+    pub index_count: i32,
+}
+
+impl Mesh {
+    /// Upload vertices + indices lên GPU, thiết lập VAO attributes
+    pub unsafe fn new(gl: &glow::Context, vertices: &[Vertex], indices: &[u32]) -> Self {
+        let vao = gl.create_vertex_array().unwrap();
+        let vbo = gl.create_buffer().unwrap();
+        let ebo = gl.create_buffer().unwrap();
+
+        gl.bind_vertex_array(Some(vao));
+
+        // VBO
+        gl.bind_buffer(glow::ARRAY_BUFFER, Some(vbo));
+        gl.buffer_data_u8_slice(
+            glow::ARRAY_BUFFER,
+            bytemuck_vertex(vertices),
+            glow::STATIC_DRAW,
+        );
+
+        // EBO
+        gl.bind_buffer(glow::ELEMENT_ARRAY_BUFFER, Some(ebo));
+        gl.buffer_data_u8_slice(
+            glow::ELEMENT_ARRAY_BUFFER,
+            bytemuck_u32(indices),
+            glow::STATIC_DRAW,
+        );
+
+        let stride = VERTEX_SIZE;
+        // location 0 – position
+        gl.enable_vertex_attrib_array(0);
+        gl.vertex_attrib_pointer_f32(0, 3, glow::FLOAT, false, stride, 0);
+        // location 1 – normal
+        gl.enable_vertex_attrib_array(1);
+        gl.vertex_attrib_pointer_f32(1, 3, glow::FLOAT, false, stride, 12);
+        // location 2 – tex_coord
+        gl.enable_vertex_attrib_array(2);
+        gl.vertex_attrib_pointer_f32(2, 2, glow::FLOAT, false, stride, 24);
+
+        gl.bind_vertex_array(None);
+
+        Self { vao, vbo, ebo, index_count: indices.len() as i32 }
+    }
+
+    pub unsafe fn draw(&self, gl: &glow::Context) {
+        gl.bind_vertex_array(Some(self.vao));
+        gl.draw_elements(glow::TRIANGLES, self.index_count, glow::UNSIGNED_INT, 0);
+        gl.bind_vertex_array(None);
+    }
+}
+
+// ──────────────────────────────────────────────────────────────
+//  Hành lang dài (Long & Rectangular Hallway)
+//  Kích thước: rộng 4, cao 3, dài 20 (đơn vị OpenGL)
+// ──────────────────────────────────────────────────────────────
+pub struct LRoomMeshes {
+    pub floor:      (Vec<Vertex>, Vec<u32>),
+    pub ceiling:    (Vec<Vertex>, Vec<u32>),
+    pub walls:      Vec<(Vec<Vertex>, Vec<u32>)>,
+}
+
+/// Tạo dữ liệu đỉnh cho căn phòng hình chữ L
+pub fn build_l_room() -> LRoomMeshes {
+    const H: f32 = 3.0; // Chiều cao
+
+    // Các điểm đỉnh trên mặt phẳng XZ (nhìn từ trên xuống)
+    // P6-----------P5
+    // |            |
+    // |      P3----P4
+    // |      |
+    // P1-----P2
+    let p1 = [-2.0, -10.0];
+    let p2 = [ 2.0, -10.0];
+    let p3 = [ 2.0,   2.0];
+    let p4 = [10.0,   2.0];
+    let p5 = [10.0,   6.0];
+    let p6 = [-2.0,   6.0];
+
+    // Helper tạo tường từ 2 điểm A, B trên XZ
+    let create_wall = |a: [f32; 2], b: [f32; 2], normal: [f32; 3]| -> (Vec<Vertex>, Vec<u32>) {
+        make_quad(
+            [a[0], 0.0, a[1]], [b[0], 0.0, b[1]], [b[0], H, b[1]], [a[0], H, a[1]],
+            normal,
+            true, // Vẫn giữ UV để sau này có thể dán tranh
+        )
+    };
+
+    // 6 mảng tường bao quanh
+    let mut walls = Vec::new();
+    walls.push(create_wall(p1, p2, [0.0, 0.0, -1.0])); // Đáy
+    walls.push(create_wall(p2, p3, [1.0, 0.0, 0.0]));  // Phải dưới
+    walls.push(create_wall(p3, p4, [0.0, 0.0, -1.0])); // Bụng chữ L
+    walls.push(create_wall(p4, p5, [1.0, 0.0, 0.0]));  // Phải trên
+    walls.push(create_wall(p5, p6, [0.0, 0.0, 1.0]));  // Đỉnh
+    walls.push(create_wall(p6, p1, [-1.0, 0.0, 0.0])); // Trái dài
+
+    // Sàn (L-shape) ghép từ 2 hình chữ nhật
+    let mut floor_v = Vec::new();
+    let mut floor_i = Vec::new();
+
+    // Sàn 1: x:[-2, 2], z:[-10, 6]
+    let (v1, i1) = make_quad([-2.0, 0.0, -10.0], [2.0, 0.0, -10.0], [2.0, 0.0, 6.0], [-2.0, 0.0, 6.0], [0.0, 1.0, 0.0], false);
+    // Sàn 2: x:[2, 10], z:[2, 6]
+    let (v2, i2) = make_quad([2.0, 0.0, 2.0], [10.0, 0.0, 2.0], [10.0, 0.0, 6.0], [2.0, 0.0, 6.0], [0.0, 1.0, 0.0], false);
+
+    // Ghép vertices và indices
+    floor_v.extend(v1);
+    floor_i.extend(i1);
+    let offset = floor_v.len() as u32;
+    floor_v.extend(v2);
+    floor_i.extend(i2.iter().map(|idx| idx + offset));
+
+    // Trần (Lật từ sàn)
+    let mut ceil_v = Vec::new();
+    for v in &floor_v {
+        let mut cv = v.clone();
+        cv.position[1] = H;
+        cv.normal = [0.0, -1.0, 0.0];
+        ceil_v.push(cv);
+    }
+    let ceil_i = floor_i.clone();
+
+    LRoomMeshes { floor: (floor_v, floor_i), ceiling: (ceil_v, ceil_i), walls }
+}
+
+/// Tạo một mặt phẳng (quad = 2 tam giác) từ 4 điểm góc (counter-clockwise)
+fn make_quad(
+    p0: [f32; 3], p1: [f32; 3], p2: [f32; 3], p3: [f32; 3],
+    normal: [f32; 3],
+    texture: bool,
+) -> (Vec<Vertex>, Vec<u32>) {
+    // UV đơn giản: phủ toàn bộ mặt (0,0)→(1,1)
+    let uvs: [[f32; 2]; 4] = if texture {
+        [[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 1.0]]
+    } else {
+        [[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 1.0]]
+    };
+    let verts = vec![
+        Vertex { position: p0, normal, tex_coord: uvs[0] },
+        Vertex { position: p1, normal, tex_coord: uvs[1] },
+        Vertex { position: p2, normal, tex_coord: uvs[2] },
+        Vertex { position: p3, normal, tex_coord: uvs[3] },
+    ];
+    let idxs = vec![0, 1, 2, 0, 2, 3];
+    (verts, idxs)
+}
+
+// ──────────────────────────────────────────────────────────────
+//  The Head – UV Sphere (high-fidelity)
+// ──────────────────────────────────────────────────────────────
+pub fn build_sphere(stacks: u32, slices: u32, radius: f32) -> (Vec<Vertex>, Vec<u32>) {
+    use std::f32::consts::PI;
+    let mut verts = Vec::new();
+    let mut idxs  = Vec::new();
+
+    for i in 0..=stacks {
+        let phi = PI * (i as f32) / (stacks as f32);   // 0 → π
+        for j in 0..=slices {
+            let theta = 2.0 * PI * (j as f32) / (slices as f32); // 0 → 2π
+
+            let x = phi.sin() * theta.cos();
+            let y = phi.cos();
+            let z = phi.sin() * theta.sin();
+
+            let position  = [radius * x, radius * y, radius * z];
+            let normal    = [x, y, z];
+            let tex_coord = [j as f32 / slices as f32, i as f32 / stacks as f32];
+
+            verts.push(Vertex { position, normal, tex_coord });
+        }
+    }
+
+    for i in 0..stacks {
+        for j in 0..slices {
+            let row0 = i * (slices + 1) + j;
+            let row1 = (i + 1) * (slices + 1) + j;
+            idxs.extend_from_slice(&[row0, row1, row0 + 1]);
+            idxs.extend_from_slice(&[row0 + 1, row1, row1 + 1]);
+        }
+    }
+
+    (verts, idxs)
+}
+
+// ──────────────────────────────────────────────────────────────
+//  OBJ Loader (bonus – load bóng đèn)
+// ──────────────────────────────────────────────────────────────
+/// Load một file .obj đơn giản dùng `tobj`.
+/// Trả về (vertices, indices) từ mesh đầu tiên.
+pub fn load_obj(path: &str) -> (Vec<Vertex>, Vec<u32>) {
+    let (models, _) = tobj::load_obj(path, &tobj::LoadOptions {
+        triangulate: true,
+        single_index: true,
+        ..Default::default()
+    }).expect("Failed to load OBJ");
+
+    let mesh   = &models[0].mesh;
+    let n      = mesh.positions.len() / 3;
+    let mut verts = Vec::with_capacity(n);
+
+    for i in 0..n {
+        let px = mesh.positions[3 * i];
+        let py = mesh.positions[3 * i + 1];
+        let pz = mesh.positions[3 * i + 2];
+
+        let (nx, ny, nz) = if mesh.normals.len() == mesh.positions.len() {
+            (mesh.normals[3*i], mesh.normals[3*i+1], mesh.normals[3*i+2])
+        } else { (0.0, 1.0, 0.0) };
+
+        let (u, v) = if mesh.texcoords.len() / 2 == n {
+            (mesh.texcoords[2*i], mesh.texcoords[2*i+1])
+        } else { (0.0, 0.0) };
+
+        verts.push(Vertex {
+            position:  [px, py, pz],
+            normal:    [nx, ny, nz],
+            tex_coord: [u, v],
+        });
+    }
+
+    (verts, mesh.indices.clone())
+}
+
+pub struct FramedPainting {
+    pub frame: (Vec<Vertex>, Vec<u32>),
+    pub art:   (Vec<Vertex>, Vec<u32>),
+}
+
+/// Tạo một bộ khung tranh 3D và tấm ảnh bên trong
+pub fn build_framed_painting(w: f32, h: f32, thick: f32) -> FramedPainting {
+    let border = 0.1; // Độ rộng của viền khung
+    let mut f_verts = Vec::new();
+    let mut f_idxs  = Vec::new();
+
+    // Helper để thêm một box vào mảng vertices/indices
+    let mut add_box = |min: [f32; 3], max: [f32; 3]| {
+        let offset = f_verts.len() as u32;
+        let (v, i) = build_box(min, max);
+        f_verts.extend(v);
+        f_idxs.extend(i.iter().map(|idx| idx + offset));
+    };
+
+    // 4 thanh của khung tranh
+    // Thanh dưới
+    add_box([-w/2.0-border, -h/2.0-border, 0.0], [w/2.0+border, -h/2.0, thick]);
+    // Thanh trên
+    add_box([-w/2.0-border, h/2.0, 0.0], [w/2.0+border, h/2.0+border, thick]);
+    // Thanh trái
+    add_box([-w/2.0-border, -h/2.0, 0.0], [-w/2.0, h/2.0, thick]);
+    // Thanh phải
+    add_box([w/2.0, -h/2.0, 0.0], [w/2.0+border, h/2.0, thick]);
+
+    // Tấm nền tranh (Art) - hơi thụt vào trong khung một chút
+    let art = make_quad(
+        [-w/2.0, -h/2.0, 0.01], [w/2.0, -h/2.0, 0.01], [w/2.0, h/2.0, 0.01], [-w/2.0, h/2.0, 0.01],
+        [0.0, 0.0, 1.0],
+        true,
+    );
+
+    FramedPainting { frame: (f_verts, f_idxs), art }
+}
+
+/// Tạo một hình hộp (6 mặt)
+fn build_box(min: [f32; 3], max: [f32; 3]) -> (Vec<Vertex>, Vec<u32>) {
+    let mut v = Vec::new();
+    let mut i = Vec::new();
+
+    let p = [
+        [min[0], min[1], min[2]], [max[0], min[1], min[2]],
+        [max[0], max[1], min[2]], [min[0], max[1], min[2]],
+        [min[0], min[1], max[2]], [max[0], min[1], max[2]],
+        [max[0], max[1], max[2]], [min[0], max[1], max[2]],
+    ];
+
+    // Front, Back, Left, Right, Top, Bottom
+    let faces = [
+        ([4, 5, 6, 7], [0.0, 0.0, 1.0]),  // Front
+        ([1, 0, 3, 2], [0.0, 0.0, -1.0]), // Back
+        ([0, 4, 7, 3], [-1.0, 0.0, 0.0]), // Left
+        ([5, 1, 2, 6], [1.0, 0.0, 0.0]),  // Right
+        ([3, 7, 6, 2], [0.0, 1.0, 0.0]),  // Top
+        ([0, 1, 5, 4], [0.0, -1.0, 0.0]), // Bottom
+    ];
+
+    for (face_indices, norm) in faces {
+        let offset = v.len() as u32;
+        v.push(Vertex::new(p[face_indices[0]], norm, [0.0, 0.0]));
+        v.push(Vertex::new(p[face_indices[1]], norm, [1.0, 0.0]));
+        v.push(Vertex::new(p[face_indices[2]], norm, [1.0, 1.0]));
+        v.push(Vertex::new(p[face_indices[3]], norm, [0.0, 1.0]));
+        i.extend_from_slice(&[offset, offset+1, offset+2, offset, offset+2, offset+3]);
+    }
+
+    (v, i)
+}
+
+// ──────────────────────────────────────────────────────────────
+//  Helper: cast byte slices (tránh unsafe transmute)
+// ──────────────────────────────────────────────────────────────
+fn bytemuck_vertex(data: &[Vertex]) -> &[u8] {
+    unsafe {
+        std::slice::from_raw_parts(
+            data.as_ptr() as *const u8,
+            data.len() * std::mem::size_of::<Vertex>(),
+        )
+    }
+}
+
+fn bytemuck_u32(data: &[u32]) -> &[u8] {
+    unsafe {
+        std::slice::from_raw_parts(
+            data.as_ptr() as *const u8,
+            data.len() * std::mem::size_of::<u32>(),
+        )
+    }
+}

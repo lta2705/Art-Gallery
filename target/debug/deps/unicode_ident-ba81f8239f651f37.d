@@ -1,0 +1,8 @@
+/Users/MAC/GraphicDesign/Final/target/debug/deps/unicode_ident-ba81f8239f651f37.d: /Users/MAC/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/unicode-ident-1.0.24/src/lib.rs /Users/MAC/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/unicode-ident-1.0.24/src/tables.rs
+
+/Users/MAC/GraphicDesign/Final/target/debug/deps/libunicode_ident-ba81f8239f651f37.rlib: /Users/MAC/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/unicode-ident-1.0.24/src/lib.rs /Users/MAC/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/unicode-ident-1.0.24/src/tables.rs
+
+/Users/MAC/GraphicDesign/Final/target/debug/deps/libunicode_ident-ba81f8239f651f37.rmeta: /Users/MAC/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/unicode-ident-1.0.24/src/lib.rs /Users/MAC/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/unicode-ident-1.0.24/src/tables.rs
+
+/Users/MAC/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/unicode-ident-1.0.24/src/lib.rs:
+/Users/MAC/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/unicode-ident-1.0.24/src/tables.rs:
