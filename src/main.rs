@@ -20,6 +20,23 @@ use glam::{Mat4, Quat, Vec3};
 use glow::HasContext;
 use std::time::Instant;
 
+// Lighting control state
+struct LightingState {
+    spotlight_enabled: bool,
+    spotlight_intensity: f32,
+    point_lights_enabled: bool,
+}
+
+impl Default for LightingState {
+    fn default() -> Self {
+        Self {
+            spotlight_enabled: true,
+            spotlight_intensity: 2.5,
+            point_lights_enabled: true,
+        }
+    }
+}
+
 // winit 0.29 imports (correct API)
 use glutin::{
     config::ConfigTemplateBuilder,
@@ -142,21 +159,22 @@ fn main() {
     };
 
     // Load STL meshes
-    let mut stl_room_aabb = None;
     // Tự động scale 1000 lần để khớp với đơn vị Mét
     let stl_room_opt = load_stl_mesh("../Models/The art gallery.stl", 1000.0);
 
     let stl_room_mesh = if let Some((v, i, aabb)) = stl_room_opt {
         println!("✅ STL Room loaded successfully!");
-        println!("   Scaled Bounds: Min({:?}), Max({:?})", aabb.min, aabb.max);
-        stl_room_aabb = Some(aabb);
+        println!(
+            "   Original Scaled Bounds: Min({:?}), Max({:?})",
+            aabb.min, aabb.max
+        );
         Some(unsafe { Mesh::new(&gl, &v, &i) })
     } else {
         println!("⚠️ STL Room not found. Using procedural fallback.");
         None
     };
 
-    let furniture_opt = load_stl_mesh("./Models/furniture.stl", 1000.0)
+    let furniture_opt = load_stl_mesh("../Models/furniture.stl", 1000.0)
         .or_else(|| load_stl_mesh("../Models/furniture.stl", 1000.0));
     let furniture_mesh = furniture_opt.map(|(v, i, _)| unsafe { Mesh::new(&gl, &v, &i) });
 
@@ -165,23 +183,17 @@ fn main() {
     let frame_mesh = unsafe { Mesh::new(&gl, &painting_geo.frame.0, &painting_geo.frame.1) };
     let art_mesh = unsafe { Mesh::new(&gl, &painting_geo.art.0, &painting_geo.art.1) };
 
-    // Vị trí các tranh: Art 2 và Art 3 đối diện nhau trong hành lang nhánh
+    // Vị trí các tranh cho L-shaped room (Branch on Left)
     let painting_transforms = vec![
-        // Art 1: Giữ nguyên ở hành lang dài (tường trái)
+        // Art 1: Left wall of main hallway (x = 0.1, facing right)
         Mat4::from_rotation_translation(
             Quat::from_rotation_y(std::f32::consts::FRAC_PI_2),
-            Vec3::new(0.15, 1.5, -4.5),
+            Vec3::new(0.1, 1.5, -1.5),
         ),
-        // Art 2: Đối diện Art 3 trong hành lang nhánh (Tường phía trên)
-        Mat4::from_rotation_translation(
-            Quat::from_rotation_y(std::f32::consts::PI), // Xoay 180 độ
-            Vec3::new(5.5, 1.5, -0.15),
-        ),
-        // Art 3: Hành lang nhánh (Tường phía dưới), dịch về bên phải (X lớn)
-        Mat4::from_rotation_translation(
-            Quat::from_rotation_y(0.0), // Nhìn về phía Z dương
-            Vec3::new(5.5, 1.5, -1.85),
-        ),
+        // Art 2: Moved to inner wall (Z=-2.9, facing +Z) because right wall is a door
+        Mat4::from_rotation_translation(Quat::from_rotation_y(0.0), Vec3::new(6.5, 1.5, -2.9)),
+        // Art 3: Back wall of branch hallway (z = -6.4, facing forward)
+        Mat4::from_rotation_translation(Quat::from_rotation_y(0.0), Vec3::new(1.75, 1.5, -6.4)),
     ];
 
     // ── Textures – 3 bức tranh ───────────────────────────────────────
@@ -196,6 +208,7 @@ fn main() {
     // ── Camera & State ───────────────────────────────────────────────
     let mut camera = Camera::new(inner_size.width as f32 / inner_size.height.max(1) as f32);
     let mut input = InputState::default();
+    let mut lighting = LightingState::default();
     let mut last_frame = Instant::now();
 
     // ── OpenGL state ─────────────────────────────────────────────────
@@ -260,6 +273,8 @@ fn main() {
         gl.bind_framebuffer(glow::FRAMEBUFFER, None);
     }
 
+    let mut show_procedural = false;
+
     // ──────────────────────── Event loop ─────────────────────────────
     event_loop
         .run(move |event, elwt| {
@@ -287,6 +302,24 @@ fn main() {
                         KeyCode::KeyA | KeyCode::ArrowLeft => input.left = pressed,
                         KeyCode::KeyD | KeyCode::ArrowRight => input.right = pressed,
                         KeyCode::KeyC if pressed => camera.toggle_mode(),
+                        KeyCode::KeyL if pressed => {
+                            lighting.spotlight_enabled = !lighting.spotlight_enabled
+                        }
+                        KeyCode::BracketLeft if pressed => {
+                            lighting.spotlight_intensity =
+                                (lighting.spotlight_intensity * 0.9).max(0.1)
+                        }
+                        KeyCode::BracketRight if pressed => {
+                            lighting.spotlight_intensity =
+                                (lighting.spotlight_intensity * 1.1).min(5.0)
+                        }
+                        KeyCode::KeyP if pressed => {
+                            lighting.point_lights_enabled = !lighting.point_lights_enabled
+                        }
+                        KeyCode::KeyM if pressed => {
+                            show_procedural = !show_procedural;
+                            println!("Toggle Procedural Room View: {}", show_procedural);
+                        }
                         KeyCode::Escape if pressed => elwt.exit(),
                         _ => {}
                     }
@@ -332,52 +365,32 @@ fn main() {
                         let speed = 5.0 * dt;
                         let next_pos = camera.head_pos + dir * speed;
 
-                        // Simple AABB Collision for the L-shaped room walls
+                        // AABB Collision for the new L-shaped room (9.5m × 6.5m)
+                        // Main hallway: x [0, 9.5], z [-3, 0]
+                        // Branch: x [0, 3.5], z [-6.5, -3]
                         let r = 0.4; // head radius
-                        let mut allowed = false;
-
-                        if let Some(ref aabb) = stl_room_aabb {
-                            // Dynamic collision with STL AABB (xz-plane)
-                            // Cộng thêm 0.1m độ dày tường (shell) vào giới hạn va chạm
-                            let shell = 0.1;
-                            allowed = next_pos.x > aabb.min[0] + r + shell
-                                && next_pos.x < aabb.max[0] - r - shell
-                                && next_pos.z > aabb.min[2] + r + shell
-                                && next_pos.z < aabb.max[2] - r - shell;
-                        } else {
-                            // Fallback to procedural L-room bounds
-                            // Main hallway: x in [-2, 2], z in [-10, 6]
-                            // Branch hallway: x in [2, 10], z in [2, 6]
-                            let in_main = next_pos.x > -2.0 + r
-                                && next_pos.x < 2.0 - r
-                                && next_pos.z > -10.0 + r
-                                && next_pos.z < 6.0 - r;
-                            let in_branch = next_pos.x > 2.0 - r
-                                && next_pos.x < 10.0 - r
-                                && next_pos.z > 2.0 + r
-                                && next_pos.z < 6.0 - r;
-                            allowed = in_main || in_branch;
-                        }
+                        let shell = 0.1; // wall thickness buffer
+                                         // L-room bounds: Main (0-9.5, -3 to 0) + Branch (0-3.5, -6.5 to -3)
+                        let in_main = next_pos.x > 0.0 + r + shell
+                            && next_pos.x < 11.5 // Allow walking through the door at X=9.5
+                            && next_pos.z > -3.0 + r + shell
+                            && next_pos.z < 0.0 - r - shell;
+                        let in_branch = next_pos.x > 0.0 + r + shell
+                            && next_pos.x < 3.5 - r - shell
+                            && next_pos.z > -6.5 + r + shell
+                            && next_pos.z < -3.0 - r - shell;
+                        let allowed = in_main || in_branch;
 
                         // Recovery logic if outside (to prevent getting stuck)
-                        let mut current_outside = true;
-                        if let Some(ref aabb) = stl_room_aabb {
-                            let shell = 0.1;
-                            current_outside = !(camera.head_pos.x > aabb.min[0] + r + shell
-                                && camera.head_pos.x < aabb.max[0] - r - shell
-                                && camera.head_pos.z > aabb.min[2] + r + shell
-                                && camera.head_pos.z < aabb.max[2] - r - shell);
-                        } else {
-                            let curr_in_main = camera.head_pos.x > -2.0 + r
-                                && camera.head_pos.x < 2.0 - r
-                                && camera.head_pos.z > -10.0 + r
-                                && camera.head_pos.z < 6.0 - r;
-                            let curr_in_branch = camera.head_pos.x > 2.0 - r
-                                && camera.head_pos.x < 10.0 - r
-                                && camera.head_pos.z > 2.0 + r
-                                && camera.head_pos.z < 6.0 - r;
-                            current_outside = !(curr_in_main || curr_in_branch);
-                        }
+                        let curr_in_main = camera.head_pos.x > 0.0 + r + shell
+                            && camera.head_pos.x < 11.5
+                            && camera.head_pos.z > -3.0 + r + shell
+                            && camera.head_pos.z < 0.0 - r - shell;
+                        let curr_in_branch = camera.head_pos.x > 0.0 + r + shell
+                            && camera.head_pos.x < 3.5 - r - shell
+                            && camera.head_pos.z > -6.5 + r + shell
+                            && camera.head_pos.z < -3.0 - r - shell;
+                        let current_outside = !(curr_in_main || curr_in_branch);
 
                         if allowed || current_outside {
                             camera.move_head(fwd, right, dt);
@@ -391,13 +404,13 @@ fn main() {
                         CameraMode::CCTV => camera.cctv_pos,
                     };
 
-                    // Spotlight setup - Đặt chếch để tạo vệt sáng trên tường góc cua
-                    let spot_pos = Vec3::new(2.0, 2.9, -8.0);
-                    let spot_dir = Vec3::new(0.0, -0.5, -0.5).normalize(); // Chiếu chếch vào tường cuối
+                    let spot_pos = Vec3::new(4.75, 3.1, -1.5);
+                    let spot_dir = Vec3::new(0.0, -1.0, 0.0).normalize(); // Straight down from ceiling
                     let light_projection =
                         Mat4::perspective_rh_gl(90.0_f32.to_radians(), 1.0, 0.1, 30.0);
+                    // Use (0,0,-1) as UP vector because spot_dir is (0,-1,0) - avoids collinearity/NaNs!
                     let light_view =
-                        Mat4::look_at_rh(spot_pos, spot_pos + spot_dir, Vec3::new(0.0, 1.0, 0.0));
+                        Mat4::look_at_rh(spot_pos, spot_pos + spot_dir, Vec3::new(0.0, 0.0, -1.0));
                     let light_space_matrix = light_projection * light_view;
 
                     let identity = Mat4::IDENTITY;
@@ -408,14 +421,19 @@ fn main() {
                                       is_depth_pass: bool| {
                         unsafe {
                             // Floor/Ceiling/Walls or STL Room
-                            shader.set_mat4(gl, "u_model", &identity);
-                            if let Some(ref stl) = stl_room_mesh {
+                            if !show_procedural && stl_room_mesh.is_some() {
+                                let stl = stl_room_mesh.as_ref().unwrap();
+                                // Rotate -90 deg around Y and translate Z by -6.5 to match procedural bounds
+                                let stl_model = Mat4::from_translation(Vec3::new(0.0, 0.0, -6.5))
+                                    * Mat4::from_rotation_y(-std::f32::consts::FRAC_PI_2);
+                                shader.set_mat4(gl, "u_model", &stl_model);
                                 if !is_depth_pass {
                                     shader.set_bool(gl, "u_use_texture", false);
                                     shader.set_vec3(gl, "u_base_color", Vec3::new(0.8, 0.8, 0.8));
                                 }
                                 stl.draw(gl);
                             } else {
+                                shader.set_mat4(gl, "u_model", &identity);
                                 if !is_depth_pass {
                                     shader.set_bool(gl, "u_use_texture", false);
                                     shader.set_vec3(gl, "u_base_color", Vec3::new(0.3, 0.3, 0.3));
@@ -437,10 +455,10 @@ fn main() {
                                 }
                             }
 
-                            // Furniture - Đặt ở góc phòng
+                            // Furniture - Đặt ở góc branch hallway
                             if let Some(ref furn) = furniture_mesh {
-                                // Đặt ở góc (X=1.0, Z=-8.5)
-                                let f_model = Mat4::from_translation(Vec3::new(1.0, 0.0, -8.5))
+                                // Đặt ở góc branch (x=1.5, z=-5.5)
+                                let f_model = Mat4::from_translation(Vec3::new(1.5, 0.0, -5.5))
                                     * Mat4::from_scale(Vec3::splat(1.0));
                                 shader.set_mat4(gl, "u_model", &f_model);
                                 if !is_depth_pass {
@@ -495,26 +513,38 @@ fn main() {
                         room_shader.set_vec3(&gl, "u_view_pos", eye);
                         room_shader.set_mat4(&gl, "u_light_space_matrix", &light_space_matrix);
 
-                        // Setup Spotlight
-                        room_shader.set_bool(&gl, "u_use_spotlight", true);
-                        room_shader.set_vec3(&gl, "u_spot_light.position", spot_pos);
-                        room_shader.set_vec3(&gl, "u_spot_light.direction", spot_dir);
-                        room_shader.set_vec3(&gl, "u_spot_light.color", Vec3::new(2.5, 2.5, 2.3)); // Intense light
-                        room_shader.set_float(
-                            &gl,
-                            "u_spot_light.cutOff",
-                            25.0_f32.to_radians().cos(),
-                        );
-                        room_shader.set_float(
-                            &gl,
-                            "u_spot_light.outerCutOff",
-                            35.0_f32.to_radians().cos(),
-                        );
-                        room_shader.set_float(&gl, "u_spot_light.constant", 1.0);
-                        room_shader.set_float(&gl, "u_spot_light.linear", 0.045);
-                        room_shader.set_float(&gl, "u_spot_light.quadratic", 0.0075);
+                        // Setup Spotlight - Controlled by lighting state
+                        room_shader.set_bool(&gl, "u_use_spotlight", lighting.spotlight_enabled);
+                        if lighting.spotlight_enabled {
+                            room_shader.set_vec3(&gl, "u_spot_light.position", spot_pos);
+                            room_shader.set_vec3(&gl, "u_spot_light.direction", spot_dir);
+                            let intensity = lighting.spotlight_intensity;
+                            room_shader.set_vec3(
+                                &gl,
+                                "u_spot_light.color",
+                                Vec3::new(intensity, intensity, intensity * 0.95),
+                            );
+                            room_shader.set_float(
+                                &gl,
+                                "u_spot_light.cutOff",
+                                25.0_f32.to_radians().cos(),
+                            );
+                            room_shader.set_float(
+                                &gl,
+                                "u_spot_light.outerCutOff",
+                                35.0_f32.to_radians().cos(),
+                            );
+                            room_shader.set_float(&gl, "u_spot_light.constant", 1.0);
+                            room_shader.set_float(&gl, "u_spot_light.linear", 0.045);
+                            room_shader.set_float(&gl, "u_spot_light.quadratic", 0.0075);
+                        }
 
-                        upload_lights(&gl, &room_shader, &lights);
+                        // Point lights control
+                        if lighting.point_lights_enabled {
+                            upload_lights(&gl, &room_shader, &lights);
+                        } else {
+                            room_shader.set_int(&gl, "u_num_lights", 0);
+                        }
 
                         // Bind shadow map
                         gl.active_texture(glow::TEXTURE1);

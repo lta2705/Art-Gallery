@@ -49,13 +49,13 @@ pub unsafe fn upload_lights(
     }
 }
 
-/// Tạo bố cục đèn cho phòng chữ L: 5 đèn phủ khắp các hành lang
+/// Tạo bố cục đèn cho phòng chữ L: 2 đèn accent tại góc nhánh
+/// Main ceiling light is controlled separately via spotlight in main.rs
 pub fn default_hallway_lights() -> Vec<PointLight> {
     vec![
-        PointLight::bright_warm(Vec3::new( 0.0, 2.7, -8.0)), // Gần lối vào
-        PointLight::bright_warm(Vec3::new( 0.0, 2.7, -3.0)), // Giữa hành lang đứng
-        PointLight::bright_warm(Vec3::new( 0.0, 2.7,  4.0)), // Tại góc cua chữ L
-        PointLight::bright_warm(Vec3::new( 5.0, 2.7,  4.0)), // Giữa hành lang ngang
-        PointLight::bright_warm(Vec3::new( 9.0, 2.7,  4.0)), // Cuối hành lang ngang
+        // Accent light at branch corner (inner corner p4 area)
+        PointLight::bright_warm(Vec3::new(3.5, 2.9, -3.0)),
+        // Accent light at far end of main hallway
+        PointLight::bright_warm(Vec3::new(9.0, 2.9, -1.5)),
     ]
 }

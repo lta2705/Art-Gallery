@@ -99,21 +99,19 @@ pub struct LRoomMeshes {
 }
 
 /// Tạo dữ liệu đỉnh cho căn phòng hình chữ L
+/// Room dimensions: Main Hallway 9.5m × 3m, Branch 3.5m × 3.5m, Height 3.2m
 pub fn build_l_room() -> LRoomMeshes {
-    const H: f32 = 3.0; // Chiều cao
+    const H: f32 = 3.2; // Ceiling height: 3.2m
 
-    // Các điểm đỉnh trên mặt phẳng XZ (nhìn từ trên xuống)
-    // P6-----------P5
-    // |            |
-    // |      P3----P4
-    // |      |
-    // P1-----P2
-    let p1 = [-2.0, -10.0];
-    let p2 = [2.0, -10.0];
-    let p3 = [2.0, 2.0];
-    let p4 = [10.0, 2.0];
-    let p5 = [10.0, 6.0];
-    let p6 = [-2.0, 6.0];
+    // Floor Plan Vertices (X, Z) - Counter-clockwise starting from bottom-left
+    // Total Width: 9.5m | Total Depth: 6.5m
+    // p1(0,0) → p2(9.5,0) → p3(9.5,-3) → p4(3.5,-3) → p5(3.5,-6.5) → p6(0,-6.5)
+    let p1 = [0.0, 0.0];    // Bottom-left (origin)
+    let p2 = [9.5, 0.0];    // Bottom-right (end of main hallway)
+    let p3 = [9.5, -3.0];   // Main top-right
+    let p4 = [3.5, -3.0];   // Inner corner
+    let p5 = [3.5, -6.5];   // Branch top-right
+    let p6 = [0.0, -6.5];   // Branch top-left
 
     // Helper tạo tường từ 2 điểm A, B trên XZ
     let create_wall = |a: [f32; 2], b: [f32; 2], normal: [f32; 3]| -> (Vec<Vertex>, Vec<u32>) {
@@ -127,34 +125,32 @@ pub fn build_l_room() -> LRoomMeshes {
         )
     };
 
-    // 6 mảng tường bao quanh
+    // 5 mảng tường bao quanh (Đã bỏ tường phải p2->p3 để làm cửa)
     let mut walls = Vec::new();
-    walls.push(create_wall(p1, p2, [0.0, 0.0, -1.0])); // Đáy
-    walls.push(create_wall(p2, p3, [1.0, 0.0, 0.0])); // Phải dưới
-    walls.push(create_wall(p3, p4, [0.0, 0.0, -1.0])); // Bụng chữ L
-    walls.push(create_wall(p4, p5, [1.0, 0.0, 0.0])); // Phải trên
-    walls.push(create_wall(p5, p6, [0.0, 0.0, 1.0])); // Đỉnh
-    walls.push(create_wall(p6, p1, [-1.0, 0.0, 0.0])); // Trái dài
-
-    // Sàn (L-shape) ghép từ 2 hình chữ nhật
+    walls.push(create_wall(p1, p2, [0.0, 0.0, -1.0])); // Đáy (z=0)
+    // Đoạn p2 -> p3 (Tường phải chính x=9.5) bị bỏ trống để làm CỬA (Door)
+    walls.push(create_wall(p3, p4, [0.0, 0.0, 1.0])); // Bụng chữ L (z=-3)
+    walls.push(create_wall(p4, p5, [-1.0, 0.0, 0.0])); // Phải nhánh (x=3.5)
+    walls.push(create_wall(p5, p6, [0.0, 0.0, 1.0])); // Đỉnh nhánh (z=-6.5)
+    walls.push(create_wall(p6, p1, [1.0, 0.0, 0.0])); // Trái dài (x=0)
     let mut floor_v = Vec::new();
     let mut floor_i = Vec::new();
 
-    // Sàn 1: x:[-2, 2], z:[-10, 6]
+    // Sàn 1 (Main Hallway): x:[0, 9.5], z:[-3.0, 0.0]
     let (v1, i1) = make_quad(
-        [-2.0, 0.0, -10.0],
-        [2.0, 0.0, -10.0],
-        [2.0, 0.0, 6.0],
-        [-2.0, 0.0, 6.0],
+        [0.0, 0.0, -3.0],
+        [9.5, 0.0, -3.0],
+        [9.5, 0.0, 0.0],
+        [0.0, 0.0, 0.0],
         [0.0, 1.0, 0.0],
         false,
     );
-    // Sàn 2: x:[2, 10], z:[2, 6]
+    // Sàn 2 (Branch Hallway): x:[0, 3.5], z:[-6.5, -3.0]
     let (v2, i2) = make_quad(
-        [2.0, 0.0, 2.0],
-        [10.0, 0.0, 2.0],
-        [10.0, 0.0, 6.0],
-        [2.0, 0.0, 6.0],
+        [0.0, 0.0, -6.5],
+        [3.5, 0.0, -6.5],
+        [3.5, 0.0, -3.0],
+        [0.0, 0.0, -3.0],
         [0.0, 1.0, 0.0],
         false,
     );
@@ -473,6 +469,28 @@ pub fn load_stl_mesh(path: &str, scale: f32) -> Option<(Vec<Vertex>, Vec<u32>, A
     let mut min = [f32::MAX, f32::MAX, f32::MAX];
     let mut max = [f32::MIN, f32::MIN, f32::MIN];
 
+    let mut computed_normals = vec![[0.0_f32; 3]; n];
+    if mesh.normals.is_empty() {
+        for face in &mesh.faces {
+            let i0 = face[0] as usize;
+            let i1 = face[1] as usize;
+            let i2 = face[2] as usize;
+            let v0 = glam::Vec3::from(mesh.vertices[i0]);
+            let v1 = glam::Vec3::from(mesh.vertices[i1]);
+            let v2 = glam::Vec3::from(mesh.vertices[i2]);
+            let normal = (v1 - v0).cross(v2 - v0).try_normalize().unwrap_or(glam::Vec3::Z);
+            for &idx in &[i0, i1, i2] {
+                computed_normals[idx][0] += normal.x;
+                computed_normals[idx][1] += normal.y;
+                computed_normals[idx][2] += normal.z;
+            }
+        }
+        for norm in &mut computed_normals {
+            let n_vec = glam::Vec3::from(*norm).try_normalize().unwrap_or(glam::Vec3::Z);
+            *norm = n_vec.into();
+        }
+    }
+
     for i in 0..n {
         let v_orig = mesh.vertices[i];
         // Rotate Z-up to Y-up: (x, y, z) -> (x, z, -y)
@@ -488,10 +506,10 @@ pub fn load_stl_mesh(path: &str, scale: f32) -> Option<(Vec<Vertex>, Vec<u32>, A
             if v[d] > max[d] { max[d] = v[d]; }
         }
 
-        let n_orig = if i < mesh.normals.len() {
+        let n_orig = if !mesh.normals.is_empty() {
             mesh.normals[i]
         } else {
-            [0.0, 0.0, 1.0]
+            computed_normals[i]
         };
         // Rotate normal as well
         let n_vec = [n_orig[0], n_orig[2], -n_orig[1]];

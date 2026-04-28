@@ -36,16 +36,18 @@ pub struct Camera {
 impl Camera {
     pub fn new(aspect: f32) -> Self {
         Self {
-            head_pos: Vec3::new(3.25, 0.5, -2.0),
-            yaw: -std::f32::consts::FRAC_PI_2,
+            // Start in center of main hallway
+            head_pos: Vec3::new(4.0, 0.5, -1.5),
+            yaw: 0.0,
             pitch: 0.0,
             fov_y: 60_f32.to_radians(),
             aspect,
             near: 0.1,
             far: 100.0,
             mode: CameraMode::POV,
-            cctv_pos: Vec3::new(3.25, 3.0, -0.5), // Góc phòng cao
-            cctv_target: Vec3::new(3.25, 0.0, -5.0),
+            // CCTV at ceiling center of main hallway
+            cctv_pos: Vec3::new(4.75, 3.0, -1.5),
+            cctv_target: Vec3::new(4.75, 0.0, -3.25),
         }
     }
 
