@@ -1,6 +1,6 @@
 //! main.rs – 3D Art Gallery (Rust + OpenGL/glow)
 //!
-//! Module A: geometry.rs  – Hallway, Head, OBJ loader
+//! Module A: geometry.rs  – Hallway, Head, OBJ, STL loader
 //! Module B: camera.rs    – WASD, Mouse Look, POV/CCTV toggle
 //! Module C: lighting.rs  – Multiple dim PointLights, Phong shaders
 
@@ -18,7 +18,7 @@ use texture::{bind_texture, load_texture};
 
 use glam::{Mat4, Quat, Vec3};
 use glow::HasContext;
-use std::time::Instant;
+use std::{sync::atomic::{AtomicBool, Ordering}, time::Instant};
 
 // Lighting control state
 struct LightingState {
@@ -51,10 +51,11 @@ use winit::{
     event::{DeviceEvent, ElementState, Event, KeyEvent, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
     keyboard::{KeyCode, PhysicalKey},
-    window::WindowBuilder,
+    window::{CursorGrabMode, WindowBuilder},
 };
 
 fn main() {
+    static IS_LOCKED: AtomicBool = AtomicBool::new(false);
     // ── Window + OpenGL context ──────────────────────────────────────
     let event_loop = EventLoop::new().expect("Failed to create EventLoop");
 
@@ -160,7 +161,7 @@ fn main() {
 
     // Load STL meshes
     // Tự động scale 1000 lần để khớp với đơn vị Mét
-    let stl_room_opt = load_stl_mesh("../Models/The art gallery.stl", 1000.0);
+    let stl_room_opt = load_stl_mesh("../Models/art_gallery.stl", 1.0);
 
     let stl_room_mesh = if let Some((v, i, aabb)) = stl_room_opt {
         println!("✅ STL Room loaded successfully!");
@@ -174,7 +175,7 @@ fn main() {
         None
     };
 
-    let furniture_opt = load_stl_mesh("../Models/furniture.stl", 1000.0)
+    let furniture_opt = load_stl_mesh("../Models/Desk_PC.stl", 0.1)
         .or_else(|| load_stl_mesh("../Models/furniture.stl", 1000.0));
     let furniture_mesh = furniture_opt.map(|(v, i, _)| unsafe { Mesh::new(&gl, &v, &i) });
 
@@ -320,6 +321,23 @@ fn main() {
                             show_procedural = !show_procedural;
                             println!("Toggle Procedural Room View: {}", show_procedural);
                         }
+                        KeyCode::Digit1 if pressed => {
+                            let current_state = IS_LOCKED.load(Ordering::SeqCst);
+                            let new_state = !current_state;
+                            IS_LOCKED.store(new_state, Ordering::SeqCst);
+
+                            if new_state {
+                                println!("Cursor LOCKED");
+                                let _ = window
+                                    .set_cursor_grab(CursorGrabMode::Locked);
+                                window.set_cursor_visible(false);
+                            } else {
+                                println!("Cursor RELEASED");
+                                let _ = window
+                                    .set_cursor_grab(CursorGrabMode::None);
+                                window.set_cursor_visible(true);
+                            }
+                        }
                         KeyCode::Escape if pressed => elwt.exit(),
                         _ => {}
                     }
@@ -358,43 +376,87 @@ fn main() {
                     let dt = now.duration_since(last_frame).as_secs_f32();
                     last_frame = now;
 
-                    // Calculate next position for collision
+                    // ── Collision-aware movement ──
                     let (fwd, right) = (input.fwd_axis(), input.right_axis());
                     if fwd != 0.0 || right != 0.0 {
-                        let dir = (camera.forward() * fwd + camera.right() * right).normalize();
+                        let dir = (camera.forward() * Vec3::new(1.0, 0.0, 1.0) * fwd
+                            + camera.right() * Vec3::new(1.0, 0.0, 1.0) * right)
+                            .normalize();
                         let speed = 5.0 * dt;
-                        let next_pos = camera.head_pos + dir * speed;
+                        let desired = dir * speed;
 
-                        // AABB Collision for the new L-shaped room (9.5m × 6.5m)
-                        // Main hallway: x [0, 9.5], z [-3, 0]
-                        // Branch: x [0, 3.5], z [-6.5, -3]
                         let r = 0.4; // head radius
                         let shell = 0.1; // wall thickness buffer
-                                         // L-room bounds: Main (0-9.5, -3 to 0) + Branch (0-3.5, -6.5 to -3)
-                        let in_main = next_pos.x > 0.0 + r + shell
-                            && next_pos.x < 11.5 // Allow walking through the door at X=9.5
-                            && next_pos.z > -3.0 + r + shell
-                            && next_pos.z < 0.0 - r - shell;
-                        let in_branch = next_pos.x > 0.0 + r + shell
-                            && next_pos.x < 3.5 - r - shell
-                            && next_pos.z > -6.5 + r + shell
-                            && next_pos.z < -3.0 - r - shell;
-                        let allowed = in_main || in_branch;
 
-                        // Recovery logic if outside (to prevent getting stuck)
-                        let curr_in_main = camera.head_pos.x > 0.0 + r + shell
-                            && camera.head_pos.x < 11.5
-                            && camera.head_pos.z > -3.0 + r + shell
-                            && camera.head_pos.z < 0.0 - r - shell;
-                        let curr_in_branch = camera.head_pos.x > 0.0 + r + shell
-                            && camera.head_pos.x < 3.5 - r - shell
-                            && camera.head_pos.z > -6.5 + r + shell
-                            && camera.head_pos.z < -3.0 - r - shell;
-                        let current_outside = !(curr_in_main || curr_in_branch);
+                        // Room bounds (procedural space):
+                        // Main hallway:  x ∈ [0, 9.5], z ∈ [-3, 0]
+                        // Branch:        x ∈ [0, 3.5], z ∈ [-6.5, -3]
+                        // Inner wall at: x = 3.5 (z ∈ [-3, 0]) and z = -3 (x ∈ [3.5, 9.5])
 
-                        if allowed || current_outside {
-                            camera.move_head(fwd, right, dt);
+                        let min_x = r + shell; // 0.5
+                        let max_x_main = 9.5 - r - shell; // 9.0
+                        let max_x_branch = 3.5 - r - shell; // 3.0
+                        let max_z_main = -r - shell; // -0.5
+                        let min_z_main = -3.0 + r + shell; // -2.6
+                        let min_z_branch = -6.5 + r + shell; // -6.1
+                        let max_z_branch = -3.0 - r - shell; // -3.5
+
+                        let mut pos = camera.head_pos;
+
+                        // Try moving X axis independently (slide along walls)
+                        let test_x = pos + Vec3::new(desired.x, 0.0, 0.0);
+                        let x_in_main = test_x.x > min_x
+                            && test_x.x < max_x_main
+                            && test_x.z > min_z_main
+                            && test_x.z < max_z_main;
+                        let x_in_branch = test_x.x > min_x
+                            && test_x.x < max_x_branch
+                            && test_x.z > min_z_branch
+                            && test_x.z < max_z_branch;
+                        // Special: allow crossing from main ↔ branch through the opening at z=-3, x∈[0,3.5]
+                        let x_in_transition = test_x.x > min_x
+                            && test_x.x < max_x_branch
+                            && test_x.z > min_z_branch
+                            && test_x.z < max_z_main;
+                        if x_in_main || x_in_branch || x_in_transition {
+                            pos.x = test_x.x;
                         }
+
+                        // Try moving Z axis independently (slide along walls)
+                        let test_z = pos + Vec3::new(0.0, 0.0, desired.z);
+                        let z_in_main = test_z.x > min_x
+                            && test_z.x < max_x_main
+                            && test_z.z > min_z_main
+                            && test_z.z < max_z_main;
+                        let z_in_branch = test_z.x > min_x
+                            && test_z.x < max_x_branch
+                            && test_z.z > min_z_branch
+                            && test_z.z < max_z_branch;
+                        // Special: allow crossing from main ↔ branch through the opening at z=-3, x∈[0,3.5]
+                        let z_in_transition = test_z.x > min_x
+                            && test_z.x < max_x_branch
+                            && test_z.z > min_z_branch
+                            && test_z.z < max_z_main;
+                        if z_in_main || z_in_branch || z_in_transition {
+                            pos.z = test_z.z;
+                        }
+
+                        // Clamp to valid bounds as safety net
+                        pos.x = pos.x.clamp(min_x, max_x_main);
+                        if pos.z < -3.0 {
+                            // In branch region
+                            if pos.x > max_x_branch {
+                                // Outside branch x-range → push back into main
+                                pos.x = max_x_branch;
+                            }
+                            pos.z = pos.z.clamp(min_z_branch, max_z_branch);
+                        } else {
+                            // In main region
+                            pos.z = pos.z.clamp(min_z_main, max_z_main);
+                        }
+
+                        camera.head_pos = pos;
+                        camera.head_pos.y = 0.5;
                     }
 
                     let view = camera.view_matrix();
