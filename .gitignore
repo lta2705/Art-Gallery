@@ -1,4 +1,3 @@
-../target
-/target/debug
-../docs
+/target
+./docs
 ~/.antigravity

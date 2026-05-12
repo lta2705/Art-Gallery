@@ -1,6 +1,6 @@
+use bevy::input::mouse::MouseMotion;
 use bevy::prelude::*;
 use bevy::window::{close_on_esc, CursorGrabMode};
-use bevy::input::mouse::MouseMotion;
 use bevy_rapier3d::prelude::*;
 use bevy_stl::StlPlugin;
 
@@ -16,13 +16,16 @@ fn main() {
         .add_plugins(RapierPhysicsPlugin::<NoUserData>::default())
         .insert_resource(Msaa::Sample4)
         .add_systems(Startup, setup_scene)
-        .add_systems(Update, (
-            player_movement, 
-            camera_toggle, 
-            setup_colliders,
-            mouse_look,
-            close_on_esc
-        ))
+        .add_systems(
+            Update,
+            (
+                player_movement,
+                camera_toggle,
+                setup_colliders,
+                mouse_look,
+                close_on_esc,
+            ),
+        )
         .run();
 }
 
@@ -64,7 +67,7 @@ fn setup_scene(
     // 2. Load STL Room (The Art Gallery)
     commands.spawn((
         PbrBundle {
-            mesh: asset_server.load("Models/The art gallery.stl"),
+            mesh: asset_server.load("Models/art_gallery.stl"),
             material: materials.add(StandardMaterial {
                 base_color: Color::rgb(0.9, 0.9, 0.9),
                 ..default()
@@ -73,10 +76,10 @@ fn setup_scene(
             // Then rotated -90 around Y, and translated.
             transform: Transform::from_xyz(0.0, 0.0, -6.5)
                 .with_rotation(
-                    Quat::from_rotation_y(-std::f32::consts::FRAC_PI_2) * 
-                    Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2)
+                    Quat::from_rotation_y(-std::f32::consts::FRAC_PI_2)
+                        * Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2),
                 )
-                .with_scale(Vec3::splat(1000.0)),
+                .with_scale(Vec3::splat(1.0)),
             ..default()
         },
         NeedsCollider, // Will attach Trimesh collider in update system
@@ -88,7 +91,7 @@ fn setup_scene(
         material: materials.add(Color::rgb(0.6, 0.3, 0.1)),
         transform: Transform::from_xyz(1.5, 0.0, -5.5)
             .with_rotation(Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2))
-            .with_scale(Vec3::splat(1000.0)),
+            .with_scale(Vec3::splat(0.01)),
         ..default()
     });
 
@@ -263,7 +266,9 @@ fn mouse_look(
     }
 
     if let Ok((camera, mut camera_transform)) = q_camera.get_single_mut() {
-        if !camera.is_active { return; } // Don't move mouse if CCTV is active
+        if !camera.is_active {
+            return;
+        } // Don't move mouse if CCTV is active
 
         let sensitivity = 0.002;
 
