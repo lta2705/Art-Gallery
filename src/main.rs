@@ -86,12 +86,19 @@ fn setup_scene(
     ));
 
     // 3. Load Furniture
+    let furniture_material = materials.add(StandardMaterial {
+        base_color: Color::rgb(0.5, 0.2, 0.0), // Màu nâu gỗ đậm
+        metallic: 0.2,                         // Độ kim loại (0.0 đến 1.0)
+        perceptual_roughness: 0.1,             // Độ nhám (càng thấp càng bóng)
+        reflectance: 0.5,                      // Độ phản chiếu ánh sáng
+        ..default()
+    });
     commands.spawn(PbrBundle {
-        mesh: asset_server.load("Models/furniture.stl"),
-        material: materials.add(Color::rgb(0.6, 0.3, 0.1)),
-        transform: Transform::from_xyz(1.5, 0.0, -5.5)
+        mesh: asset_server.load("Models/Desk_PC.stl"),
+        material: furniture_material,
+        transform: Transform::from_xyz(1.5, 0.5, -5.5) // Nâng Y lên 0.5 để không lún sàn
             .with_rotation(Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2))
-            .with_scale(Vec3::splat(0.01)),
+            .with_scale(Vec3::splat(0.1)),
         ..default()
     });
 
@@ -276,7 +283,7 @@ fn mouse_look(
             player_transform.rotate_y(-delta.x * sensitivity);
         }
 
-        let (mut yaw, mut pitch, mut roll) = camera_transform.rotation.to_euler(EulerRot::YXZ);
+        let (mut _yaw, mut pitch, mut _roll) = camera_transform.rotation.to_euler(EulerRot::YXZ);
         pitch -= delta.y * sensitivity;
         pitch = pitch.clamp(-1.5, 1.5);
         camera_transform.rotation = Quat::from_euler(EulerRot::YXZ, 0.0, pitch, 0.0);
