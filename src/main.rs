@@ -438,13 +438,18 @@ fn mesh_aabb_half_extents(mesh: &Mesh) -> Option<Vec3> {
 }
 
 /// System to handle WASD Movement relative to player's facing direction
+/// Resets player to start position if they fall below threshold.
 fn player_movement(
     keyboard: Res<ButtonInput<KeyCode>>,
-    mut q_player: Query<(&Transform, &mut Velocity), With<Player>>,
+    mut q_player: Query<(&mut Transform, &mut Velocity), With<Player>>,
 ) {
-    if let Ok((transform, mut velocity)) = q_player.get_single_mut() {
-        if transform.translation.y < 0.0 {
-            println!("Player falling! Y = {}", transform.translation.y);
+    if let Ok((mut transform, mut velocity)) = q_player.get_single_mut() {
+        const RESET_Y: f32 = -5.0;
+        if transform.translation.y < RESET_Y {
+            transform.translation = Vec3::new(4.0, 0.5, -1.5);
+            velocity.linvel = Vec3::ZERO;
+            println!("Player fell out of bounds — reset to start position");
+            return;
         }
 
         let mut dir = Vec3::ZERO;
