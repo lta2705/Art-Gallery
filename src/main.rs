@@ -1,8 +1,12 @@
+mod read_bin;
+
 use bevy::input::mouse::MouseMotion;
 use bevy::prelude::*;
 use bevy::window::{close_on_esc, CursorGrabMode};
+use bevy_obj::ObjPlugin;
 use bevy_rapier3d::prelude::*;
 use bevy_stl::StlPlugin;
+use read_bin::print_mesh_dimensions;
 
 fn main() {
     App::new()
@@ -13,8 +17,14 @@ fn main() {
             ..default()
         }))
         .add_plugins(StlPlugin)
+        .add_plugins(ObjPlugin)
         .add_plugins(RapierPhysicsPlugin::<NoUserData>::default())
         .insert_resource(Msaa::Sample4)
+        .insert_resource(LightingSettings {
+            spotlight_on: true,
+            point_lights_on: true,
+            spotlight_intensity: 50000.0,
+        })
         .add_systems(Startup, setup_scene)
         .add_systems(
             Update,
@@ -23,7 +33,9 @@ fn main() {
                 camera_toggle,
                 setup_colliders,
                 mouse_look,
+                lighting_control,
                 close_on_esc,
+                print_mesh_dimensions,
             ),
         )
         .run();
@@ -45,6 +57,25 @@ struct FpvCamera;
 #[derive(Component)]
 struct CctvCamera;
 
+/// Resource to track lighting state
+#[derive(Resource)]
+struct LightingSettings {
+    spotlight_on: bool,
+    point_lights_on: bool,
+    spotlight_intensity: f32,
+}
+
+/// Marker for the main spotlight
+#[derive(Component)]
+struct GallerySpotlight;
+
+/// Marker for the corner accent lights
+#[derive(Component)]
+struct GalleryPointLight;
+
+#[derive(Component)]
+pub struct UnprocessedMesh;
+
 fn setup_scene(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
@@ -52,19 +83,27 @@ fn setup_scene(
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut q_windows: Query<&mut Window>,
 ) {
-    // Cursor grab
+    // 1. Cấu hình con trỏ chuột (Khóa chuột vào giữa màn hình và ẩn đi)
     if let Ok(mut window) = q_windows.get_single_mut() {
         window.cursor.grab_mode = CursorGrabMode::Locked;
         window.cursor.visible = false;
     }
 
-    // 1. Ambient Light
+    // 2. Ánh sáng môi trường (Giảm để bóng đổ từ đèn trần trông thật hơn)
     commands.insert_resource(AmbientLight {
         color: Color::WHITE,
-        brightness: 150.0,
+        brightness: 40.0,
     });
 
-    // 2. Load STL Room (The Art Gallery)
+    // Mặt sàn cố định (Fix cứng để không bị rơi tự do)
+    commands.spawn((
+        TransformBundle::from(Transform::from_xyz(4.75, -0.05, -3.25)),
+        RigidBody::Fixed,
+        Collider::cuboid(4.75, 0.05, 3.25),
+        Name::new("Fixed-Floor"),
+    ));
+
+    // 3. Tải phòng trưng bày (The Art Gallery - STL)
     commands.spawn((
         PbrBundle {
             mesh: asset_server.load("Models/art_gallery.stl"),
@@ -72,8 +111,7 @@ fn setup_scene(
                 base_color: Color::rgb(0.9, 0.9, 0.9),
                 ..default()
             }),
-            // The original loaded mesh needs to be rotated -90 around X (to make Z up become Y up)
-            // Then rotated -90 around Y, and translated.
+            // Xoay trục từ Z-up (hệ CAD) sang Y-up (hệ Bevy)
             transform: Transform::from_xyz(0.0, 0.0, -6.5)
                 .with_rotation(
                     Quat::from_rotation_y(-std::f32::consts::FRAC_PI_2)
@@ -82,87 +120,191 @@ fn setup_scene(
                 .with_scale(Vec3::splat(1.0)),
             ..default()
         },
-        NeedsCollider, // Will attach Trimesh collider in update system
+        Name::new("Art-Gallery"),
+        NeedsCollider, // Hệ thống update sẽ đọc và tạo Trimesh Collider chống xuyên tường
+        UnprocessedMesh, // Dùng để in ra kích thước thật 1 lần duy nhất
     ));
 
-    // 3. Load Furniture
+    // 4. Tải nội thất (Desk PC - STL)
     let furniture_material = materials.add(StandardMaterial {
         base_color: Color::rgb(0.5, 0.2, 0.0), // Màu nâu gỗ đậm
-        metallic: 0.2,                         // Độ kim loại (0.0 đến 1.0)
+        metallic: 0.2,                         // Độ kim loại
         perceptual_roughness: 0.1,             // Độ nhám (càng thấp càng bóng)
-        reflectance: 0.5,                      // Độ phản chiếu ánh sáng
-        ..default()
-    });
-    commands.spawn(PbrBundle {
-        mesh: asset_server.load("Models/Desk_PC.stl"),
-        material: furniture_material,
-        transform: Transform::from_xyz(1.5, 0.5, -5.5) // Nâng Y lên 0.5 để không lún sàn
-            .with_rotation(Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2))
-            .with_scale(Vec3::splat(0.1)),
+        reflectance: 0.5,
         ..default()
     });
 
-    // 4. Load Painting Images and map to Quads (Rectangles)
+    commands.spawn((
+        PbrBundle {
+            mesh: asset_server.load("Models/Desk_PC.stl"),
+            material: furniture_material,
+            // Di chuyển về góc p6(0, -6.5), tăng kích thước và xoay hướng ra hành lang
+            transform: Transform::from_xyz(0.8, 0.0, -5.8)
+                .with_rotation(Quat::from_rotation_y(std::f32::consts::PI) * Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2))
+                .with_scale(Vec3::splat(0.08)),
+            ..default()
+        },
+        Name::new("Desk-PC"),
+        UnprocessedMesh,
+    ));
+
+    // 5. Tải ảnh tranh vẽ và gắn vào các khối Quad (Kèm khung)
     let art1_texture = asset_server.load("src/assets/art1.jpg");
     let art2_texture = asset_server.load("src/assets/art2.jpg");
     let art3_texture = asset_server.load("src/assets/art3.jpg");
 
-    let painting_transforms = vec![
-        // Art 1: Left wall of main hallway
-        (
-            art1_texture,
-            Transform::from_xyz(0.1, 1.5, -1.5)
-                .with_rotation(Quat::from_rotation_y(std::f32::consts::FRAC_PI_2)),
-        ),
-        // Art 2: Inner wall
-        (art2_texture, Transform::from_xyz(6.5, 1.5, -2.9)),
-        // Art 3: Back wall of branch hallway
-        (art3_texture, Transform::from_xyz(1.75, 1.5, -6.4)),
-    ];
+    // Bức tranh 1: Tường trái
+    spawn_painting_with_frame(
+        &mut commands,
+        &mut meshes,
+        &mut materials,
+        art1_texture,
+        Transform::from_xyz(0.1, 1.5, -1.5)
+            .with_rotation(Quat::from_rotation_y(std::f32::consts::FRAC_PI_2)),
+    );
 
-    let quad_mesh = meshes.add(Rectangle::new(1.2, 1.2));
+    // Bức tranh 2: Tường phải
+    spawn_painting_with_frame(
+        &mut commands,
+        &mut meshes,
+        &mut materials,
+        art2_texture,
+        Transform::from_xyz(6.5, 1.5, -3.49),
+        // .with_rotation(Quat::from_rotation_y(-std::f32::consts::FRAC_PI_2))
+    );
 
-    for (texture, transform) in painting_transforms {
-        let material = materials.add(StandardMaterial {
-            base_color_texture: Some(texture),
-            unlit: false,
-            ..default()
-        });
+    // Bức tranh 3: Tường sau
+    spawn_painting_with_frame(
+        &mut commands,
+        &mut meshes,
+        &mut materials,
+        art3_texture,
+        Transform::from_xyz(1.75, 1.5, -6.4),
+    );
 
-        commands.spawn(PbrBundle {
-            mesh: quad_mesh.clone(),
-            material,
-            transform,
-            ..default()
-        });
-    }
-
-    // 5. Spotlight pointing at the painting
-    commands.spawn(SpotLightBundle {
-        spot_light: SpotLight {
-            intensity: 50000.0, // High intensity gallery spotlight
-            shadows_enabled: true,
-            range: 20.0,
-            ..default()
-        },
-        transform: Transform::from_xyz(4.0, 3.0, -1.0)
-            .looking_at(Vec3::new(4.0, 1.5, -2.9), Vec3::Y),
+    // 6. Hệ thống đèn trần (Phân bổ 3 bóng đều dọc hành lang chính)
+    let bulb_mesh = asset_server.load("Models/eb_ceiling_light_01.obj");
+    let bulb_mat = materials.add(StandardMaterial {
+        base_color: Color::rgb(1.0, 1.0, 0.8),
+        emissive: Color::rgb(15.0, 15.0, 8.0),
         ..default()
     });
 
-    // CCTV Camera
+    let hallway_light_positions = vec![
+        Vec3::new(1.5, 3.1, -1.5),
+        Vec3::new(4.75, 3.1, -1.5),
+        Vec3::new(8.0, 3.1, -1.5),
+    ];
+
+    for (i, pos) in hallway_light_positions.into_iter().enumerate() {
+        commands
+            .spawn((
+                PointLightBundle {
+                    point_light: PointLight {
+                        intensity: 7000.0,
+                        shadows_enabled: true,
+                        range: 15.0,
+                        radius: 0.15, // Tạo bóng đổ mềm (Soft Shadows)
+                        ..default()
+                    },
+                    transform: Transform::from_translation(pos),
+                    ..default()
+                },
+                GalleryPointLight,
+                Name::new(format!("Hallway-Light-{}", i + 1)),
+            ))
+            .with_children(|p| {
+                p.spawn((
+                    PbrBundle {
+                        mesh: bulb_mesh.clone(),
+                        material: bulb_mat.clone(),
+                        // Tinh chỉnh hướng chao đèn và scale
+                        transform: Transform::from_rotation(Quat::from_rotation_x(std::f32::consts::PI))
+                                    .with_scale(Vec3::splat(0.002)),
+                        ..default()
+                    },
+                    Name::new(format!("Bulb-Mesh-{}", i + 1)),
+                    UnprocessedMesh,
+                ));
+            });
+    }
+
+    // 7. Camera an ninh (CCTV Camera)
     commands.spawn((
         Camera3dBundle {
             transform: Transform::from_xyz(4.75, 3.0, -1.5)
                 .looking_at(Vec3::new(4.75, 0.0, -3.25), Vec3::Y),
             camera: Camera {
-                is_active: false, // Inactive by default
+                is_active: false, // Mặc định tắt, chỉ bật khi nhấn phím 'C'
                 ..default()
             },
             ..default()
         },
         CctvCamera,
+        Name::new("CCTV-Camera"),
     ));
+}
+
+/// Helper function to spawn a painting with a procedural frame
+fn spawn_painting_with_frame(
+    commands: &mut Commands,
+    meshes: &mut ResMut<Assets<Mesh>>,
+    materials: &mut ResMut<Assets<StandardMaterial>>,
+    texture: Handle<Image>,
+    transform: Transform,
+) {
+    let frame_mat = materials.add(StandardMaterial {
+        base_color: Color::rgb(0.2, 0.1, 0.05),
+        perceptual_roughness: 0.7,
+        ..default()
+    });
+
+    // Painting Quad
+    commands.spawn(PbrBundle {
+        mesh: meshes.add(Rectangle::new(1.2, 1.2)),
+        material: materials.add(StandardMaterial {
+            base_color_texture: Some(texture),
+            ..default()
+        }),
+        transform,
+        ..default()
+    });
+
+    // Procedural Frame (4 pieces)
+    let w = 1.3;
+    let t = 0.05;
+    let offset = 0.6;
+    let frame_mesh = meshes.add(Cuboid::new(w, t, t));
+    let frame_mesh_v = meshes.add(Cuboid::new(t, w, t));
+
+    // Top
+    commands.spawn(PbrBundle {
+        mesh: frame_mesh.clone(),
+        material: frame_mat.clone(),
+        transform: transform * Transform::from_xyz(0.0, offset, 0.0),
+        ..default()
+    });
+    // Bottom
+    commands.spawn(PbrBundle {
+        mesh: frame_mesh.clone(),
+        material: frame_mat.clone(),
+        transform: transform * Transform::from_xyz(0.0, -offset, 0.0),
+        ..default()
+    });
+    // Left
+    commands.spawn(PbrBundle {
+        mesh: frame_mesh_v.clone(),
+        material: frame_mat.clone(),
+        transform: transform * Transform::from_xyz(-offset, 0.0, 0.0),
+        ..default()
+    });
+    // Right
+    commands.spawn(PbrBundle {
+        mesh: frame_mesh_v.clone(),
+        material: frame_mat.clone(),
+        transform: transform * Transform::from_xyz(offset, 0.0, 0.0),
+        ..default()
+    });
 }
 
 /// System to handle asynchronous generation of Colliders from meshes
@@ -202,6 +344,7 @@ fn setup_colliders(
                             },
                             RigidBody::Dynamic,
                             Collider::ball(0.4),
+                            bevy_rapier3d::prelude::Ccd::enabled(),
                             LockedAxes::ROTATION_LOCKED,
                             Velocity::default(),
                         ))
@@ -232,6 +375,10 @@ fn player_movement(
     mut q_player: Query<(&Transform, &mut Velocity), With<Player>>,
 ) {
     if let Ok((transform, mut velocity)) = q_player.get_single_mut() {
+        if transform.translation.y < 0.0 {
+            println!("Player falling! Y = {}", transform.translation.y);
+        }
+
         let mut dir = Vec3::ZERO;
         if keyboard.pressed(KeyCode::KeyW) {
             dir.z -= 1.0;
@@ -287,6 +434,43 @@ fn mouse_look(
         pitch -= delta.y * sensitivity;
         pitch = pitch.clamp(-1.5, 1.5);
         camera_transform.rotation = Quat::from_euler(EulerRot::YXZ, 0.0, pitch, 0.0);
+    }
+}
+
+/// System to handle keyboard lighting controls
+fn lighting_control(
+    keyboard: Res<ButtonInput<KeyCode>>,
+    mut settings: ResMut<LightingSettings>,
+    mut q_spot: Query<&mut SpotLight, With<GallerySpotlight>>,
+    mut q_point: Query<&mut PointLight, With<GalleryPointLight>>,
+) {
+    if keyboard.just_pressed(KeyCode::KeyL) {
+        settings.spotlight_on = !settings.spotlight_on;
+    }
+    if keyboard.just_pressed(KeyCode::KeyP) {
+        settings.point_lights_on = !settings.point_lights_on;
+    }
+    if keyboard.pressed(KeyCode::BracketLeft) {
+        settings.spotlight_intensity *= 0.95;
+    }
+    if keyboard.pressed(KeyCode::BracketRight) {
+        settings.spotlight_intensity *= 1.05;
+        settings.spotlight_intensity = settings.spotlight_intensity.min(1000000.0);
+    }
+
+    for mut light in q_spot.iter_mut() {
+        light.intensity = if settings.spotlight_on {
+            settings.spotlight_intensity
+        } else {
+            0.0
+        };
+    }
+    for mut light in q_point.iter_mut() {
+        light.intensity = if settings.point_lights_on {
+            2000.0
+        } else {
+            0.0
+        };
     }
 }
 
