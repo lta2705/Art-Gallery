@@ -1,6 +1,7 @@
 mod read_bin;
 
 use bevy::input::mouse::MouseMotion;
+use bevy::pbr::PointLightShadowMap;
 use bevy::prelude::*;
 use bevy::window::{close_on_esc, CursorGrabMode};
 use bevy_obj::ObjPlugin;
@@ -24,7 +25,9 @@ fn main() {
             spotlight_on: true,
             point_lights_on: true,
             spotlight_intensity: 50000.0,
+            point_light_intensity: 7000.0,
         })
+        .insert_resource(PointLightShadowMap { size: 1024 })
         .add_systems(Startup, setup_scene)
         .add_systems(
             Update,
@@ -34,6 +37,7 @@ fn main() {
                 setup_colliders,
                 mouse_look,
                 lighting_control,
+                update_shadows_by_distance,
                 close_on_esc,
                 print_mesh_dimensions,
             ),
@@ -63,6 +67,7 @@ struct LightingSettings {
     spotlight_on: bool,
     point_lights_on: bool,
     spotlight_intensity: f32,
+    point_light_intensity: f32,
 }
 
 /// Marker for the main spotlight
@@ -139,12 +144,16 @@ fn setup_scene(
             mesh: asset_server.load("Models/Desk_PC.stl"),
             material: furniture_material,
             // Di chuyển về góc p6(0, -6.5), tăng kích thước và xoay hướng ra hành lang
-            transform: Transform::from_xyz(0.8, 0.0, -5.8)
-                .with_rotation(Quat::from_rotation_y(std::f32::consts::PI) * Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2))
-                .with_scale(Vec3::splat(0.08)),
+            transform: Transform::from_xyz(0.5, 0.1, -6.0)
+                .with_rotation(
+                    Quat::from_rotation_y(std::f32::consts::PI)
+                        * Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2),
+                )
+                .with_scale(Vec3::splat(0.1)),
             ..default()
         },
         Name::new("Desk-PC"),
+        NeedsCollider,
         UnprocessedMesh,
     ));
 
@@ -159,7 +168,7 @@ fn setup_scene(
         &mut meshes,
         &mut materials,
         art1_texture,
-        Transform::from_xyz(0.1, 1.5, -1.5)
+        Transform::from_xyz(0.01, 1.5, -1.5)
             .with_rotation(Quat::from_rotation_y(std::f32::consts::FRAC_PI_2)),
     );
 
@@ -179,21 +188,35 @@ fn setup_scene(
         &mut meshes,
         &mut materials,
         art3_texture,
-        Transform::from_xyz(1.75, 1.5, -6.4),
+        Transform::from_xyz(1.75, 1.5, -6.49),
     );
 
     // 6. Hệ thống đèn trần (Phân bổ 3 bóng đều dọc hành lang chính)
     let bulb_mesh = asset_server.load("Models/eb_ceiling_light_01.obj");
+
+    // Config vật liệu Thủy tinh/Kính cho Bulb
     let bulb_mat = materials.add(StandardMaterial {
-        base_color: Color::rgb(1.0, 1.0, 0.8),
-        emissive: Color::rgb(15.0, 15.0, 8.0),
-        ..default()
-    });
+            // Màu gốc của kính (A = 0.2 để gần như trong suốt)
+            base_color: Color::rgba(0.9, 0.9, 1.0, 0.2), 
+            // Emissive tạo hiệu ứng ánh sáng rực lên từ bên trong kính
+            emissive: Color::rgb(15.0, 15.0, 8.0),
+            // Độ nhám thấp (0.05) để kính có độ phản chiếu bề mặt bóng loáng
+            perceptual_roughness: 0.05,
+            metallic: 0.0,
+            // Độ truyền sáng (Bevy 0.13+) giúp vật liệu thực sự trông giống thủy tinh
+            specular_transmission: 1.0,
+            thickness: 0.05, // Độ dày thành kính
+            ior: 1.5,       // Chỉ số khúc xạ của thủy tinh
+            // QUAN TRỌNG: Phải có chế độ Blend để render xuyên thấu
+            alpha_mode: AlphaMode::Blend,
+            ..default()
+        });
 
     let hallway_light_positions = vec![
         Vec3::new(1.5, 3.1, -1.5),
         Vec3::new(4.75, 3.1, -1.5),
         Vec3::new(8.0, 3.1, -1.5),
+        Vec3::new(1.75, 3.1, -4.75),
     ];
 
     for (i, pos) in hallway_light_positions.into_iter().enumerate() {
@@ -218,9 +241,8 @@ fn setup_scene(
                     PbrBundle {
                         mesh: bulb_mesh.clone(),
                         material: bulb_mat.clone(),
-                        // Tinh chỉnh hướng chao đèn và scale
-                        transform: Transform::from_rotation(Quat::from_rotation_x(std::f32::consts::PI))
-                                    .with_scale(Vec3::splat(0.002)),
+                        transform: Transform::from_xyz(0.0, -0.0, 0.0)
+                            .with_scale(Vec3::splat(0.01)),
                         ..default()
                     },
                     Name::new(format!("Bulb-Mesh-{}", i + 1)),
@@ -229,7 +251,59 @@ fn setup_scene(
             });
     }
 
-    // 7. Camera an ninh (CCTV Camera)
+    // 7. Đèn spotlight chính (togglable bằng phím L, điều chỉnh bằng [ / ])
+    commands.spawn((
+        SpotLightBundle {
+            spot_light: SpotLight {
+                intensity: 50000.0,
+                shadows_enabled: true,
+                range: 20.0,
+                radius: 0.2,
+                outer_angle: 1.2,
+                inner_angle: 0.8,
+                ..default()
+            },
+            transform: Transform::from_xyz(4.75, 3.2, -1.5)
+                .looking_at(Vec3::new(4.75, 0.0, -1.5), Vec3::Y),
+            ..default()
+        },
+        GallerySpotlight,
+        Name::new("Main-Spotlight"),
+    ));
+
+    // 9. Player (đầu người) - spawn ngay vì Fixed-Floor collider đã có sẵn
+    let player_id = commands
+        .spawn((
+            Player,
+            PbrBundle {
+                mesh: meshes.add(Sphere::new(0.4)),
+                material: materials.add(Color::rgb(0.8, 0.7, 0.9)),
+                transform: Transform::from_xyz(4.0, 0.5, -1.5),
+                ..default()
+            },
+            RigidBody::Dynamic,
+            Collider::ball(0.4),
+            bevy_rapier3d::prelude::Ccd::enabled(),
+            LockedAxes::ROTATION_LOCKED,
+            Velocity::default(),
+        ))
+        .id();
+
+    commands.entity(player_id).with_children(|parent| {
+        parent.spawn((
+            Camera3dBundle {
+                transform: Transform::from_xyz(0.0, 0.2, 0.0),
+                camera: Camera {
+                    is_active: true,
+                    ..default()
+                },
+                ..default()
+            },
+            FpvCamera,
+        ));
+    });
+
+    // 10. Camera an ninh (CCTV Camera)
     commands.spawn((
         Camera3dBundle {
             transform: Transform::from_xyz(4.75, 3.0, -1.5)
@@ -308,64 +382,58 @@ fn spawn_painting_with_frame(
 }
 
 /// System to handle asynchronous generation of Colliders from meshes
-/// Math / Logic:
-/// Since STL loading is asynchronous, we poll the `Assets<Mesh>` resource.
-/// Once the raw vertices and indices are available, `Collider::from_bevy_mesh`
-/// uses the exact geometry data to compute a precise `Trimesh` for collision detection.
-/// This ensures the player's Sphere collider interacts perfectly with the L-shaped room walls.
+/// Polls `Assets<Mesh>` until STL/OBJ meshes are loaded,
+/// then generates colliders for collision detection.
+/// - Room (L-shape): Trimesh for precise wall collision
+/// - Furniture (Desk_PC): AABB Cuboid for performance
 fn setup_colliders(
     mut commands: Commands,
-    query: Query<(Entity, &Handle<Mesh>), With<NeedsCollider>>,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-    player_query: Query<(), With<Player>>,
+    query: Query<(Entity, &Handle<Mesh>, Option<&Name>), With<NeedsCollider>>,
+    meshes: Res<Assets<Mesh>>,
 ) {
-    for (entity, mesh_handle) in query.iter() {
+    for (entity, mesh_handle, name) in query.iter() {
         if let Some(mesh) = meshes.get(mesh_handle) {
-            // Generate Trimesh from STL
-            if let Some(collider) = Collider::from_bevy_mesh(mesh, &ComputedColliderShape::TriMesh)
+            let is_furniture = name
+                .and_then(|n| Some(n.as_str() == "Desk-PC"))
+                .unwrap_or(false);
+
+            if is_furniture {
+                if let Some(half) = mesh_aabb_half_extents(mesh) {
+                    commands
+                        .entity(entity)
+                        .insert(Collider::cuboid(half.x, half.y, half.z))
+                        .insert(RigidBody::Fixed)
+                        .remove::<NeedsCollider>();
+                }
+            } else if let Some(collider) =
+                Collider::from_bevy_mesh(mesh, &ComputedColliderShape::TriMesh)
             {
                 commands
                     .entity(entity)
                     .insert(collider)
-                    .insert(RigidBody::Fixed) // Ensure the room is static
+                    .insert(RigidBody::Fixed)
                     .remove::<NeedsCollider>();
-
-                // Spawn player ONLY after the floor collider is ready to prevent falling into the void
-                if player_query.is_empty() {
-                    let player_id = commands
-                        .spawn((
-                            Player,
-                            PbrBundle {
-                                mesh: meshes.add(Sphere::new(0.4)),
-                                material: materials.add(Color::rgb(0.8, 0.7, 0.9)),
-                                transform: Transform::from_xyz(4.0, 0.5, -1.5),
-                                ..default()
-                            },
-                            RigidBody::Dynamic,
-                            Collider::ball(0.4),
-                            bevy_rapier3d::prelude::Ccd::enabled(),
-                            LockedAxes::ROTATION_LOCKED,
-                            Velocity::default(),
-                        ))
-                        .id();
-
-                    commands.entity(player_id).with_children(|parent| {
-                        parent.spawn((
-                            Camera3dBundle {
-                                transform: Transform::from_xyz(0.0, 0.2, 0.0),
-                                camera: Camera {
-                                    is_active: true,
-                                    ..default()
-                                },
-                                ..default()
-                            },
-                            FpvCamera,
-                        ));
-                    });
-                }
             }
         }
+    }
+}
+
+/// Compute AABB half-extents from mesh vertex positions.
+fn mesh_aabb_half_extents(mesh: &Mesh) -> Option<Vec3> {
+    use bevy::render::mesh::VertexAttributeValues;
+    if let Some(VertexAttributeValues::Float32x3(positions)) =
+        mesh.attribute(Mesh::ATTRIBUTE_POSITION)
+    {
+        let mut min = Vec3::splat(f32::MAX);
+        let mut max = Vec3::splat(f32::MIN);
+        for pos in positions {
+            let p = Vec3::from_slice(pos);
+            min = min.min(p);
+            max = max.max(p);
+        }
+        Some((max - min) / 2.0)
+    } else {
+        None
     }
 }
 
@@ -438,24 +506,37 @@ fn mouse_look(
 }
 
 /// System to handle keyboard lighting controls
+/// Keys: L=toggle spotlight, P=toggle point lights,
+///       [=decrease spotlight intensity, ]=increase spotlight intensity
 fn lighting_control(
     keyboard: Res<ButtonInput<KeyCode>>,
     mut settings: ResMut<LightingSettings>,
     mut q_spot: Query<&mut SpotLight, With<GallerySpotlight>>,
     mut q_point: Query<&mut PointLight, With<GalleryPointLight>>,
 ) {
+    const MIN_INTENSITY: f32 = 0.0;
+    const MAX_INTENSITY: f32 = 200000.0;
+
     if keyboard.just_pressed(KeyCode::KeyL) {
         settings.spotlight_on = !settings.spotlight_on;
     }
     if keyboard.just_pressed(KeyCode::KeyP) {
         settings.point_lights_on = !settings.point_lights_on;
     }
-    if keyboard.pressed(KeyCode::BracketLeft) {
-        settings.spotlight_intensity *= 0.95;
+    if keyboard.pressed(KeyCode::ArrowLeft) {
+        settings.spotlight_intensity =
+            (settings.spotlight_intensity * 0.95).max(MIN_INTENSITY);
+        settings.point_light_intensity =
+            (settings.point_light_intensity * 0.95).max(MIN_INTENSITY);
+    }
+    if keyboard.pressed(KeyCode::ArrowRight) {
+        settings.spotlight_intensity =
+            (settings.spotlight_intensity * 1.05).min(MAX_INTENSITY);
+        settings.point_light_intensity =
+            (settings.point_light_intensity * 1.05).min(MAX_INTENSITY);
     }
     if keyboard.pressed(KeyCode::BracketRight) {
-        settings.spotlight_intensity *= 1.05;
-        settings.spotlight_intensity = settings.spotlight_intensity.min(1000000.0);
+        settings.spotlight_intensity = (settings.spotlight_intensity * 1.05).min(MAX_INTENSITY);
     }
 
     for mut light in q_spot.iter_mut() {
@@ -467,10 +548,34 @@ fn lighting_control(
     }
     for mut light in q_point.iter_mut() {
         light.intensity = if settings.point_lights_on {
-            2000.0
+            settings.point_light_intensity
         } else {
             0.0
         };
+    }
+}
+
+/// System to auto-enable/disable shadows based on distance to player.
+/// Lights within 8m get shadows enabled; farther lights skip shadow rendering for performance.
+fn update_shadows_by_distance(
+    player: Query<&Transform, With<Player>>,
+    mut q_point: Query<(&Transform, &mut PointLight), With<GalleryPointLight>>,
+    mut q_spot: Query<(&Transform, &mut SpotLight), With<GallerySpotlight>>,
+) {
+    let Ok(player_tf) = player.get_single() else {
+        return;
+    };
+
+    let dist_threshold = 8.0;
+
+    for (light_tf, mut light) in &mut q_point {
+        let dist = player_tf.translation.distance(light_tf.translation);
+        light.shadows_enabled = dist < dist_threshold;
+    }
+
+    for (light_tf, mut light) in &mut q_spot {
+        let dist = player_tf.translation.distance(light_tf.translation);
+        light.shadows_enabled = dist < dist_threshold;
     }
 }
 
