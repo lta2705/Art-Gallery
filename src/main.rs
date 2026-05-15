@@ -241,7 +241,7 @@ fn setup_scene(
                     PbrBundle {
                         mesh: bulb_mesh.clone(),
                         material: bulb_mat.clone(),
-                        transform: Transform::from_xyz(0.0, -0.0, 0.0)
+                        transform: Transform::from_xyz(0.0, 0.1, 0.0)
                             .with_scale(Vec3::splat(0.01)),
                         ..default()
                     },

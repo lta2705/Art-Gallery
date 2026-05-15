@@ -1,0 +1,427 @@
+Module: 3D modeling using software
+Lecture 7 · Module: 3D modeling using software
+Guided practice with FreeCAD 1.0
+Lecturer: Van-Tien Giap, Ph.D.
+Faculty of Engineering and Technology
+
+FreeCAD interface, workbench selection, constrained sketch, pad, and final tutorial part
+Engineering and Computer Graphics · Lecture 7
+
+What students should achieve today
+Learning outcomes
+• Explain what a CAD model stores beyond the final
+rendered view.
+• Relate FreeCAD concepts to OpenGL ideas:
+geometry, transforms, viewing, and display.
+• Build a simple 3D part through a guided workflow
+in class.
+• Describe the software pipeline: document → body
+→ sketch → constraints → 3D features → revision.
+
+Engineering and Computer Graphics · Lecture 7
+
+Lecture flow
+1. Concept bridge: OpenGL thinking → CAD
+thinking
+2. Interface and workbench orientation
+3. Parametric modeling pipeline
+4. Guided build: sketch, pad, pocket, top features
+5. Independent mini-challenge and recap
+
+Tutorial end state used as the classroom
+reference model
+
+Coordinate Spaces in OpenGL
+3D modeling
+software to create
+geometry
+
+Engineering and Computer Graphics · Lecture 7
+
+OpenGL to CAD: what changes? (1/2)
+What students already know in OpenGL
+• Objects appear through vertices, transforms,
+materials, lights, and a camera/view pipeline.
+• A rendered scene is optimized for display.
+• The programmer usually decides how geometry is
+represented and updated.
+
+FREECAD ARCHITECTURE
+Qt GUI / GUI Layer
+
+Qt / PySide widgets • main window
+• task panels • toolbars • 3D view
+document state / commands
+
+user actions / selection
+
+FreeCAD App / Core Layer
+Document & object model • property system • recompute •
+transactions • undo/redo
+Core application API: FreeCAD (App API) • workbench/
+extension framework
+display representation
+
+OpenGL is a rendering API
+OCCT/Open CASCADE
+Technology
+Precise CAD geometry kernel
+B-Rep • topology • NURBS •
+fillets/chamfers • booleans
+
+Engineering and Computer Graphics · Lecture 7
+
+rendered 3D scene
+
+Coin3D
+Open Inventor–
+compatible scene
+graph
+Renders tessellated /
+display geometry with
+OpenGL
+
+geometry operations
+
+display / tessellation
+
+user events
+
+API / workbench access
+
+OpenGL to CAD: why the pipeline matters (2/2)
+A useful classroom analogy
+• OpenGL asks: “How do I draw this object now?”
+• CAD asks: “How was this object built, and what
+should happen if one dimension changes?”
+• In CAD, a hole diameter is not just geometry; it is a
+named, editable design decision.
+Fully constrained sketch
+
+Key consequence for engineering
+• Stable edits are more valuable than one perfect
+screenshot.
+• A good model survives revision without starting
+over.
+• That is why we will focus on constraints, pad,
+pocket, and feature order.
+The next feature depends on that sketch
+
+Engineering and Computer Graphics · Lecture 7
+
+FreeCAD interface and workbench orientation
+FreeCAD GUI
+
+Engineering and Computer Graphics · Lecture 7
+
+The modeling pipeline in software
+Minimal sequence to build 3D geometry
+
+URL: https://wiki.freecad.org/Manual:Modeling_for_product_design
+
+1
+
+2
+
+3
+
+4
+
+5
+
+Document
+and Body
+
+Sketch
+and constrain
+
+Pad or
+first solid
+
+Add / cut
+features
+
+Edit values
+and update
+
+Sketch
+
+Pocketed body
+
+Editable final result
+
+• A feature-based model is valuable because any later step still depends on earlier design choices.
+• When the model tree is healthy, changing a dimension should regenerate the part instead of forcing a redraw.
+Engineering and Computer Graphics · Lecture 7
+
+Sketcher + Part Design: the two ideas to remember
+Key rules for beginners
+
+Sketcher: geometry + constraints → predictable 2D profile
+
+Part Design: use that profile to create a 3D feature
+Engineering and Computer Graphics · Lecture 7
+
+• Green sketch = fully constrained and
+safer to build on.
+• Pad adds material; Pocket removes
+material.
+• Later features should build on earlier
+ones inside the same Body.
+• If the parent sketch changes, the child
+feature should update with it.
+• A clean model tree is more important
+than fancy shape complexity on day one.
+
+Practice task for the classroom build
+What students will do
+1. Create a Body and a first rectangular sketch.
+2. Fully constrain the sketch.
+3. Pad it into a base solid.
+4. Create a second sketch on a face and
+pocket material out.
+5. Add simple circular top features.
+6. Change one dimension and confirm the
+model updates.
+
+Reference tutorial object: base sketch → pad →
+pocket → top pads
+
+Engineering and Computer Graphics · Lecture 7
+
+Success criterion: every student leaves class
+with one editable FCStd file.
+• If you finish early: change the base size, pocket
+depth, or top feature spacing.
+• If you fall behind: match the base pad and one
+pocket first, then continue.
+
+Step 1 — Create a Body and choose the sketch plane
+1. Open a new document.
+
+3. Create a Body.
+
+Engineering and Computer Graphics · Lecture 7
+
+2. Switch to the Part Design workbench.
+
+Step 1 — Create a Body and choose the sketch plane
+• The plane choice is
+intentional: it controls the
+direction of the first pad.
+
+4. Click to choose the
+base plane.
+
+Engineering and Computer Graphics · Lecture 7
+
+5. Click Create
+Sketch
+
+Step 2 — Draw the rectangle and fully constrain it
+Instructor cues
+1) Draw the rectangle roughly first.
+2) Then add size constraints.
+3) Finally anchor the sketch to the
+origin.
+4) Green sketch = fully constrained.
+Classroom checkpoint
+• Ask students to drag a corner
+lightly.
+• If anything still moves, the
+sketch is not ready for Pad.
+Tutorial sketch after dimensional and positional constraints
+
+Engineering and Computer Graphics · Lecture 7
+
+Step 2 — Draw the rectangle and fully constrain it
+1) Draw the rectangle roughly.
+Click rectangle icon
+1
+
+Click on 2D sketch area
+2
+
+drag the mouse and click to
+determine the next corner
+
+Engineering and Computer Graphics · Lecture 7
+
+3
+
+Step 2 — Draw the rectangle and fully constrain it
+2) Then add size constraints.
+Click on dimension button
+2
+select the edge
+1
+
+Click on Horizontal
+dimension button
+3
+Insert dimension
+4
+
+5
+
+Click OK
+
+Step 2 — Draw the rectangle and fully constrain it
+3) Finally anchor the sketch to the origin.
+Click on coincident button
+3
+Green = fully constraints
+
+select the 1st point
+1
+
+Select the 2nd point
+(origin)
+2
+
+Step 3 — Pad the sketch into the first solid
+Pad adds material and stays linked to its sketch, so later sketch edits can recompute the solid.
+
+Leave sketch
+1
+
+Click pad
+
+Click OK/Enter
+
+2
+
+3
+
+Set height
+3
+
+Engineering and Computer Graphics · Lecture 7
+
+Mouse Navigation
+Choosing view
+
+Step 4 — Sketch on a face and use external geometry
+1) Select the target face before creating the next sketch.
+2) Draw the internal rectangle on that face.
+
+External projection to
+import face edges
+
+3) Import face edges as reference geometry, then add offsets.
+
+New sketch on the selected face
+
+Engineering and Computer Graphics · Lecture 7
+
+Imported external edges in magenta
+
+Offsets define the pocket boundary
+
+Step 5 — Pocket the interior
+Pocket checklist
+• Leave the sketch edit mode.
+• Select the new sketch in the model tree.
+• Choose Pocket instead of Pad.
+• Set the cut depth or through-all behavior.
+• Inspect the cavity from an angled view.
+
+Pocket result after subtracting material
+
+Engineering and Computer Graphics · Lecture 7
+
+Step 6 — Add circles on the top face, then Pad again
+
+Top-face sketch: circles are dimensioned from imported edges
+
+Result after padding the circular sketch
+
+Pattern to remember: select face → sketch → constrain → Pad.
+
+Engineering and Computer Graphics · Lecture 7
+
+Step 7 — Add circles on the bot face, then Pad again
+Do the same with step 6, but the
+circles is at the bot face
+
+Result after padding the circular sketch
+
+Pattern to remember: select face → sketch → constrain → Pad.
+
+Engineering and Computer Graphics · Lecture 7
+
+Step 8 — Edit a value and test the model
+In-class parameter edits
+1. Double-click the base sketch and
+change one dimension.
+2. Confirm that the pad updates.
+3. Edit pocket depth or top-circle size.
+4. Observe how later features follow
+earlier edits.
+Remarks!
+• Parametric modeling is valuable because
+revision is built in.
+• A correct workflow makes change cheaper
+than rebuilding.
+Completed tutorial part: a useful checkpoint before
+independent edits
+Engineering and Computer Graphics · Lecture 7
+
+Troubleshooting for beginners
+• Sketch still moves → it is under-constrained; do not
+build on it yet.
+• Feature appears in the wrong place → the wrong
+face or plane was selected before sketching.
+• Hole or pocket stops staying centered after edits →
+the sketch was constrained to the wrong reference.
+
+If a face is unsuitable, create a datum plane
+
+• A difficult slanted or irregular face may need a datum
+plane instead of direct face sketching.
+
+Attach the plane carefully so the next sketch
+has a stable reference frame
+Engineering and Computer Graphics · Lecture 7
+
+Mini challenge
+Choose one modification
+1. Make the base longer or taller.
+2. Change the pocket depth.
+3. Resize the circular top features.
+4. Add one extra repeated feature if you
+finish early.
+Quick assessment rubric
+• The file opens and the Body is valid.
+
+Students modify their own copy rather than starting
+from zero
+Engineering and Computer Graphics · Lecture 7
+
+• At least one edited parameter updates the
+model.
+• The student can explain which sketch
+drives which feature.
+
+Still have time? Draw this
+
+Takeaways
+By the end of Lecture 7, students should be able to
+say:
+• A CAD model stores editable design logic, not only what is
+currently rendered.
+• FreeCAD beginner workflow = Body → Sketch → Constraints
+→ Pad / Pocket → Edit values.
+• A fully constrained sketch is the safest starting point for later
+features.
+
+Start page / new document view
+
+• Simple parts become powerful when they remain easy to
+revise.
+
+A finished but still editable result
+
+Engineering and Computer Graphics · Lecture 7
+
+

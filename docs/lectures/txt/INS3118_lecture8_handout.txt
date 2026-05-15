@@ -1,0 +1,613 @@
+Lecture 8 — Curve in Computer
+Graphics
+FreeCAD 3D Modeling Training
+Engineering and Computer Graphics
+
+Focus: Hermite, Cardinal, Bézier, B-Spline, NURBS —
+and how they appear in OpenGL and FreeCAD
+
+Lecturer: Van-Tien Giap
+Faculty of Engineering and Technology
+
+Theory 45 min | Guided practice 90 min
+
+Learning goals and lecture structure
+Outcomes
+
+What students already
+know
+
+Timing
+
+• Describe Hermite, Cardinal, Bézier, BSpline and NURBS curves.
+• Explain continuity, local control,
+knots and weights.
+• Relate matrix-based curve evaluation
+in OpenGL to curve tools in FreeCAD.
+
+• OpenGL matrices, lighting, textures,
+blending.
+• Basic FreeCAD sketching, pad and
+pocket operations.
+• Laptop-based classroom workflow.
+
+45 min theory
+90 min step-by-step
+practice
+
+Today’s
+sequence
+1
+
+2
+
+3
+
+4
+
+5
+
+6
+
+curve
+concepts
+
+family
+comparison
+
+OpenGL
+mapping
+
+Sketcher Bspline
+
+weights to
+NURBS
+
+Draft curve +
+3D use
+
+One mathematical idea, two toolchains
+A curve is an infinitely large set of points
+Curve mathematics
+
+OpenGL mental model
+
+FreeCAD mental model
+
+• A curve is a parametric
+mapping from parameter u
+to position:
+(x,y) = f(u)
+
+• Sample u to generate
+vertices or tessellated
+fragments.
+• Use basis matrices /
+blending functions to
+evaluate position and
+derivatives.
+• Continuity affects shading,
+normals, motion and sweep
+paths.
+
+• Sketcher and Draft expose
+control points, degree, knots
+and weights.
+• B-spline tools show control
+polygon and curvature
+comb.
+• Curve choice affects
+editability and the quality of
+later solids/surfaces.
+
+• Continuity tells how
+smoothly pieces meet.
+Cn continuity
+• Control points, tangents,
+knots and weights change
+behavior.
+
+“Local control matters in both rendering and CAD editing.
+
+Curve essentials: parameter, continuity, and local control
+Key ideas to watch throughout the lecture
+• Parametric form: move a point along the curve by
+changing u: f(u)=(x,y)
+• C0 means connected, C1 adds tangent
+continuity, C2 adds curvature continuity.
+• Geometric continuity (G1, G2) can match shape
+even when parameter speed differs.
+• Local control means one edit changes only a
+nearby region; this is crucial in CAD.
+Visual cue: a sharp corner usually means C0 but not C1.
+
+Cn continuity
+
+Gn continuity
+
+𝑑 𝑓 𝑢
+𝑑 𝑓 𝑢
+=
+𝑑𝑢
+𝑑𝑢
+
+𝑑 𝑓 𝑢
+𝑑 𝑓 𝑢
+=𝑘
+𝑑𝑢
+𝑑𝑢
+
+Curve families I — Hermite and Cardinal
+
+Hermite
+
+Cardinal
+
+endpoints + tangents
+
+interpolating cubic, tension
+
+Hermite
+
+Cardinal
+
+• Specify (position + first derivative) at the start
+and end.
+• Natural for animation paths or when endpoint
+tangents are known.
+• Good conceptual bridge from vectors in OpenGL
+to editable tangents in CAD.
+
+• Interpolates points with C1 continuity + local
+control.
+• Uses neighboring points to infer tangents.
+• Tension parameter (t) changes how tightly the
+curve bends;
+• Catmull–Rom is the tension = 0 special case.
+
+Curve families II — Bézier
+Progressive disclosure: one family emphasized at a time
+
+Bézier
+control polygon, convex hull
+
+Bézier curves
+• Interpolates first and last control points.
+• Inner points pull the shape but are not usually
+interpolated.
+• Convex-hull and variation-diminishing properties
+make behavior predictable.
+• de Casteljau gives a stable evaluation / subdivision
+algorithm.
+
+de Casteljau
+algorithm for a
+cubic Bézier
+
+Inner points
+
+Curve families III — B-Spline and NURBS
+Progressive disclosure: one family emphasized at a time
+
+B-Spline /
+NURBS
+local control, knots, weights
+
+B-Spline / NURBS focus
+• B-splines are piecewise polynomial
+and usually approximate control
+points.
+• Local control: each point on the curve
+depends on only a limited
+neighborhood.
+• Knots and knot multiplicity change
+continuity and interpolation behavior.
+• NURBS add weights, enabling exact
+conic sections and more shape
+control.
+
+𝑃 𝑢 =
+
+𝑁, 𝑢 𝑃,
+
+Ni,k(u) is non-zero
+at small range of u
+
+B-Spline Vs. NURBS
+
+8
+
+Best use of each tool
+Feature
+
+Bézier Curve
+
+B-Spline
+
+Hermite Spline
+
+Cardinal Spline
+
+Passes Through
+Points?
+
+Approximating: Only
+starts/ends at points.
+
+Approximating: Usually
+misses all points.
+
+Interpolating: Passes
+through every point.
+
+Interpolating: Passes
+through every point.
+
+Control Input
+
+Control Points
+(Magnets).
+
+Control Points + Knot
+Vector.
+
+Points + Tangent Vectors Points + Tension
+(Angles).
+Parameter.
+
+Local vs. Global
+
+Local: Moving a point
+Global: Move one point,
+only affects its
+the whole curve moves.
+neighborhood.
+
+Local: Tangents only
+affect the immediate
+segment.
+
+Local: Tension and
+points affect local
+shape.
+
+Degree Control
+
+Tied: Degree increases
+with the number of
+points.
+
+Independent: You
+choose the degree
+(usually cubic).
+
+Fixed: Almost always
+Cubic (degree 3).
+
+Fixed: Almost always
+Cubic (degree 3).
+
+Best Use Case
+
+Graphic design, logos,
+and font outlines.
+
+CAD, 3D modeling, and
+high-end engineering.
+
+Keyframe animation
+(controlling
+velocity/angle).
+
+Game paths, waypoints,
+and data visualization.
+
+OpenGL and FreeCAD mapping for curves
+What about PowerPoint?
+
+Concept
+
+In OpenGL thinking
+
+In FreeCAD thinking
+
+Parameter u
+
+Sample positions on the curve for
+tessellation or drawing
+
+Drag or inspect the curve while FreeCAD
+evaluates positions internally
+
+Control points
+
+Input data in a buffer / uniform
+structure
+
+Editable points, tangents, knots, handles
+
+Basis /
+blending
+
+Hermite, Bézier or B-spline basis
+matrices
+
+Sketcher and Draft tools hide the math but
+expose the result
+
+Continuity
+
+Affects smooth normals, motion and
+sampling quality
+
+Affects visual fairness and the quality of
+later sweeps/lofts
+
+Weights / knots
+
+Extra parameters change
+interpolation and local influence
+
+NURBS weights and knot multiplicity are
+editable design controls
+
+Teaching tip: answer “why continuity and knots matter” with the downstream effect on editing locality and 3D surface quality.
+
+Practice roadmap: 5 activities, one shared model
+A
+
+B
+
+C
+
+Sketcher B-spline
+Create a curve from control points, inspect degree, and talk about continuity.
+
+Weights → rational behavior
+Adjust weights and see why a rational B-spline behaves differently from a plain polynomial spline.
+
+Draft curve → 3D use
+Compare Bézier and B-spline editing, then reuse a curve as profile or path for later modeling.
+
+D
+
+Turn a Draft curve into a 3D feature
+
+E
+
+Use Shape From Text for raised or engraved features
+
+Practice A — Create a B-spline in Sketcher
+Workflow
+• Create a new sketch on the XY plane.
+• Choose the Sketcher B-Spline tool (
+• Left-click several control points; right-click to
+finish.
+• Press U/J while drawing if you want to change the
+degree explicitly.
+• Try to fix most of the points and move one
+
+Checkpoint prompt
+
+Does your curve interpolate every control point? If not,
+why is that still useful?
+
+Practice B — Weights, knots, and the jump to NURBS
+What students do
+• Display the weight circles around control points.
+• Break the equality of the radii so weights can vary
+independently.
+• Increase one weight and observe the curve being
+attracted to that control point. (select circle + D)
+• Discuss why zero and negative weights are not
+allowed in the usual workflow.
+• Relate nonuniform knots or repeated knots to
+interpolation behavior.
+Observe and explain
+A rational B-spline is a NURBS curve. The “R” comes
+from the ratio introduced by the weights.
+
+Practice C — Compare Draft Bézier and Draft B-spline
+Compare editing behavior
+• Create a Draft Bézier curve from points.
+• Create a Draft B-spline from a similar
+point set.
+• Move one interior control point in each
+case.
+• Ask: which edit feels more local? which
+curve is easier to shape globally?
+
+(20,40)
+(60,30)
+
+(40,10)
+Then reuse the result
+• Use the curve as a path or profile in a
+later Sweep / Loft exercise.
+• Connect back to the students’ prior pad
+/ pocket experience.
+
+(0,0)
+Remember to unselect relative coordinate
+
+Why this matters for modeling
+The curve you sketch is not just 2D decoration. Its continuity
+and locality shape the surfaces and solids you create next.
+
+Engineering and Computer Graphics
+
+14
+
+Practice D — Turn a Draft curve into a 3D feature
+Workflow
+
+Classroom demo script
+
+Create a Draft Wire, B-spline, or Bézier that forms
+a closed profile.
+Use Draft Edit to move points until the profile is
+clean and closed.
+For a quick solid: switch to Part Workbench and
+use Extrude.
+For PartDesign editing later: use Draft to Sketch,
+activate a Body, then Pad or Pocket.
+If the curve is open, keep it for sweep/path work
+instead of pad/pocket.
+
+1. Draw one simple closed outline from curve tools in Draft.
+2. Show the same outline in two branches: Part Extrude vs Draft to
+Sketch.
+3. Edit one control point and ask which branch is easier to revise.
+4. Reinforce the rule: closed profile for solid features, open curve
+for paths.
+
+Part Extrude
+Draft curve
+
+Checkpoint prompt
+Which workflow preserves the most editability
+for later constraints?
+
+Closed?
+
+fast result
+
+Draft to Sketch
+
+Pad /
+Pocket
+
+best when later pad/pocket edits
+matter
+
+Engineering and Computer Graphics
+
+15
+
+Practice E — Use Shape From Text for raised or engraved features
+ShapeString workflow
+
+What students should watch
+
+1) Switch to Draft Workbench and launch Shape
+From Text.
+2) Set the text string, choose a font file, then
+define size and placement.
+3) Place the text on a plane or on the face that
+will receive the feature.
+4) For raised text: use PartDesign Pad or Part
+Extrude.
+5) For engraved text: use PartDesign Pocket to
+cut the letters into the solid.
+
+• Text behaves like geometry, not editable typography.
+• The font file controls the letter outlines.
+• Closed inner loops (A, O, P, R…) become holes in the final feature.
+• Pocket cuts inward; Pad or Extrude adds material outward.
+
+Shape
+From Text
+
+Pad /
+Extrude
+
+raised
+
+Pocket
+
+engraved
+
+Place on
+face
+
+Common pitfall
+The letters are separate closed loops; keep them
+aligned with the support face before you cut.
+Extruding a ShapeString produces a compound of solids, so selection
+order and placement matter.
+
+Mini challenge: engrave your initials on a small block, then change the font and
+compare edge quality.
+
+Engineering and Computer Graphics
+
+16
+
+Decision rule — which Draft output should become Extrude,
+Pad, or Pocket?
+Starting object
+
+Best next step
+
+Why
+
+Do this in class
+
+Closed Draft curve
+
+Part Extrude
+
+Fast 3D result from a
+profile you already drew.
+
+Use when speed matters
+more than Body history.
+
+Closed Draft curve needing
+later feature edits
+
+Draft to Sketch →
+Pad/Pocket
+
+Best route when the profile
+must stay editable in
+PartDesign.
+
+Use for classroom
+practice that may be
+revised later.
+
+Shape From Text on a face
+
+Pad or Pocket
+
+Text becomes closed
+geometry that can add or
+remove material.
+
+Try both raised and
+engraved versions.
+
+Open Draft curve
+
+Keep as path /
+sweep guide
+
+Open curves do not make
+pad/pocket solids by
+themselves.
+
+Reserve these for later
+sweep / loft exercises.
+
+One-sentence takeaway
+
+Bridge to the next module
+
+do I need a quick solid, or do I need an editable
+PartDesign feature history?
+
+The same decision logic appears again when curves become
+sweep paths, loft sections, and profile networks for surfaces.
+
+Recap
+Quick recap
+• Hermite: endpoints + tangents.
+• Cardinal: interpolating cubic with tension and local
+control.
+• Bézier: endpoint interpolation, control polygon, de
+Casteljau.
+• B-spline: piecewise polynomial, local control, knots.
+• NURBS: weighted rational extension of B-splines.
+
+

@@ -1,0 +1,621 @@
+Lecture 9
+
+From STL Mesh to Basic
+Blender Rendered Animation
+Engineering and Computer Graphics
+Module: Computer Graphic with Blender
+Lecturer: Van-Tien Giap, Ph.D.
+Faculty of Engineering and Technology
+Minimal functional project for today:
+import dragon.stl, build a simple scene, animate a flight path, and render a short shot.
+
+STL → scene → material → world lighting → path animation → final render
+
+Engineering and Computer Graphics • Module: Computer Graphic with Blender
+
+1
+
+Why this lecture matters
+
+Project brief
+
+Today’s minimal functional project
+
+What the class is really practicing
+
+• Input asset: one provided dragon STL mesh.
+• Build a readable scene instead of a complex
+production pipeline.
+• Animate the dragon as a flying object using
+a curve-based path.
+• Render one still frame first, then render the
+short motion sequence.
+
+1. Translate a CAD-style mesh into a
+renderable Blender scene.
+2. Connect materials, world lighting, camera,
+and animation in one workflow.
+3. Make decisions that are “good enough” for
+classroom rendering speed.
+4. Separate preview settings from final output
+settings.
+
+Teaching method: demo one action, students repeat
+immediately, then instructor checks the result before moving
+on.
+
+Engineering and Computer Graphics • Module: Computer Graphic with Blender
+
+2
+
+Learning outcomes and visible deliverables
+By the end of lecture 9, each student should be able to:
+
+1. Import an STL file into Blender and keep
+orientation / scale under control.
+2. Create a basic renderable setup with material,
+world lighting, and camera.
+3. Animate the dragon moving through space with
+a controlled path.
+4. Render a short animation using frame
+sequence workflow and export a video.
+
+Outcomes
+
+Lecture evidence of success
+• Viewport shows the imported dragon
+correctly.
+• A still render is readable and intentionally
+lit.
+• Timeline plays a full flight from start to
+end frame.
+• Output folder contains numbered frames
+and one encoded video.
+
+Classroom rule: do not chase perfect realism first.
+Confirm visibility, motion, and output correctness
+before beautification.
+
+Engineering and Computer Graphics • Module: Computer Graphic with Blender
+
+3
+
+FreeCAD → Blender: the mental model shift
+What students already know from FreeCAD
+
+• Curves define shape or motion references.
+• Bodies have scale, orientation, and local
+coordinates.
+• A model can be exported as a mesh for
+downstream use.
+
+Carry over your geometry discipline; do not carry over
+the expectation of a feature tree driving everything.
+
+Engineering and Computer Graphics • Module: Computer Graphic with Blender
+
+Concept
+
+What Blender adds for today’s task
+
+→
+
+• Scene graph: objects, camera, lights, and
+world all matter.
+• Material inputs behave like render-shader
+controls students already know from OpenGL
+ideas.
+
+Today’s translation: CAD mesh becomes one scene
+object that we illuminate, frame, animate, and output.
+
+4
+
+The Blender workspace we will actually touch today
+1. 3D Viewport — place, inspect, and frame the
+dragon.
+2. Properties Editor — import settings, materials,
+world, render, and output.
+3. Shader Editor — simple node setup for material
+and environment.
+4. Timeline — scrub frames, insert keys, and
+preview motion.
+5. Outliner — keep scene names clean: Dragon,
+Camera, Sun, Path.
+
+Engineering and Computer Graphics • Module: Computer Graphic with Blender
+
+Workspace
+
+Recommended classroom habit
+• Do one change at a time, then orbit /
+scrub / render-test.
+• Rename objects before animation begins.
+• Save a new version after successful
+import and again after the first still render.
+
+If the interface feels large, reduce the mission:
+import correctly, look through the camera, press
+F12 for a still, then animate.
+
+5
+
+Step 1 — Import the provided dragon STL
+Classroom procedure
+
+Target result after this slide
+
+1. Open a clean Blender scene.
+2. Choose File → Import → STL.
+3. Select dragon.stl from the class folder.
+4. Import once only; inspect before reimporting.
+5. Rename the object to Dragon immediately.
+
+• The mesh is visible in the viewport.
+• The dragon is not unexpectedly
+rotated or microscopic.
+• The Outliner contains a clearly
+named Dragon object.
+
+Import
+
+Import is a diagnostic step, not a beauty step.
+Do not touch materials yet.
+Keyboard check: Numpad . on selected object to zoom to it.
+
+Engineering and Computer Graphics • Module: Computer Graphic with Blender
+
+6
+
+Import settings that matter for STL
+
+Import
+
+Use these options intentionally, not by guesswork
+Scale — start with 1.0; change only if the imported size is clearly wrong.
+Scene Unit — use when scene units already matter to your workflow.
+Facet Normals — keeps imported facet normals; useful when you intentionally want flat-looking faces.
+Forward / Up Axis — use when the dragon arrives with wrong orientation. Blender expects Y forward and
+Z up.
+Validate Mesh — helpful for suspicious files, but slower than normal import.
+
+Rule of thumb for class: fix orientation first, then scale, and only then continue to shading or animation.
+
+Engineering and Computer Graphics • Module: Computer Graphic with Blender
+
+7
+
+Before shading: prepare the imported mesh for the rest of the pipeline
+
+Mesh prep
+
+Preparation checklist
+
+Why this matters later
+
+1. Check scale with a known reference or the
+grid.
+2. Place the dragon near world origin for
+predictable camera and path work.
+3. Make the dragon face its intended forward
+direction before path following.
+4. Apply scale only after you are happy with
+size.
+5. Save a new file version:
+lecture9_dragon_scene.blend.
+
+• Wrong scale makes lighting and camera
+decisions harder to judge.
+• Wrong forward axis produces awkward pathfollow orientation.
+• A messy origin or object name makes
+debugging much slower.
+
+Engineering and Computer Graphics • Module: Computer Graphic with Blender
+
+Do not animate a confusing object. Clean
+transforms first.
+
+8
+
+Step 2 — Build one reliable material with Principled BSDF
+
+Material
+
+Fast classroom recipe
+
+1. Create one material named
+Dragon_Mat.
+2. Start with Base Color, Roughness, and
+Metallic only.
+3. Keep values simple enough for quick
+visual comparison.
+4. Do one preview render before adding
+complexity.
+
+2
+
+3
+In this lecture, Principled BSDF is the
+“good default” because one node covers
+most common surface needs.
+
+Engineering and Computer Graphics • Module: Computer Graphic with Blender
+
+1
+9
+
+Setting camera and light
+2) Change direction of
+camera
+
+3) Change clip start and end
+
+1) Select camera
+
+1
+
+2
+
+3
+
+Same for light, but this time we use
+light from HDR image
+
+10
+
+Step 3 — Render the object and its environment
+Scene target: the dragon must read
+clearly against a believable world setup.
+• Use Material Preview or Rendered mode
+while adjusting.
+• Set a World background first; add a light
+only if the form is still unclear.
+• If an HDRI is available, connect it through
+an Environment Texture node.
+• Make one fast still render now before
+animation begins.
+Manual example: world lighting
+with HDR image
+
+Lighting
+
+In Shading tab, world shader:
+
+Delete existing background node
+Right lick add -> environment texture
+
+Connect the node1to world output
+
+Classroom shortcut: preview with quick settings;
+reserve costly final quality for the end.
+
+Source of HDR file
+https://polyhaven.com/
+
+Engineering and Computer Graphics • Module: Computer Graphic with Blender
+
+11
+
+Step 3 — Render the object and its environment
+Create shadow using light source of HDR
+image
+
+Lighting
+
+In modeling tab -> add -> Mesh -> Plane
+1
+
+Add Plane,
+Change size of plane in Object properties
+
+2
+
+3
+
+Engineering and Computer Graphics • Module: Computer Graphic with Blender
+
+12
+
+Step 3 — Render the object and its environment
+
+Lighting
+
+Create shadow using light source of HDR
+image
+In Plane object properties select “Shadow catcher”
+
+Use render engine: Cycles
+
+1
+
+2
+
+Engineering and Computer Graphics • Module: Computer Graphic with Blender
+
+13
+
+Step 4 — Frame one successful still render before animating
+Recommended classroom order
+
+Why a still render first?
+
+1. Place the camera.
+2. Use a 3/4 view so silhouette and depth both
+read clearly.
+3. Lock one “hero frame” before you think
+about motion.
+4. Press F12 and evaluate shape, lighting, and
+background contrast.
+
+• A bad still render becomes a bad
+animation many times over.
+• Camera framing problems are easier
+to fix on one frame than across 100+
+frames.
+• This is the fastest checkpoint before
+the class invests in render time.
+
+Camera
+
+If frame 1 is not visually convincing, do
+not continue to animation yet.
+
+Engineering and Computer Graphics • Module: Computer Graphic with Blender
+
+14
+
+Animation plan (1/3) — start with the idea of keyframes
+Minimum motion logic
+
+1. Choose a start frame and an end
+frame.
+2. Store one transform at the first
+frame.
+3. Store a second transform later in
+time.
+4. Let Blender interpolate the values
+between them.
+
+Animate
+
+In Animation tab
+
+Drag keyframe pointer to desired frame
+and press “I” to create a new keyframes
+Keyframes answer the question: “what
+value should this property have at this
+moment?”
+
+Engineering and Computer Graphics • Module: Computer Graphic with Blender
+
+15
+
+Animation plan (2/3) — use a curve as the dragon’s flight path
+
+Animate
+
+Why a curve is the right classroom tool here
+• Students already know curve ideas from FreeCAD.
+• The flight path becomes visible and editable in the
+viewport.
+• The dragon motion reads as intentional rather than
+random translation.
+Add Bezier curve
+
+Official manual example: an object arranged to follow a curve
+
+Engineering and Computer Graphics • Module: Computer Graphic with Blender
+
+Click the node and press:
+G to move the node
+R to rotate tangent line
+S to scale to tangent line
+E to add point that extrudes from the
+selected point
+
+16
+
+Animation plan (2/3) — use a curve as the dragon’s flight path
+Click dragon object -> constraint -> add object constraint
+-> follow path -> choose BezierCurve
+
+Engineering and Computer Graphics • Module: Computer Graphic with Blender
+
+Animate
+
+Select follow curve: forward axis –Y, up axis Z
+
+17
+
+Controlling speed and position on the path
+Operational rule for today
+
+1) Select the curve
+
+Animate
+
+2) Selec Data -> Path Animation panel
+
+• Keep one simple frame range for the
+whole shot (Frames = 100).
+• Use Evaluation Time (or path
+animation timing) to move from start to
+end.
+• drag the frame pointer at each point
+and set corresponding evaluation time.
+
+Path shape controls WHERE the dragon
+goes. Evaluation Time controls WHEN it
+reaches each point.
+
+Engineering and Computer Graphics • Module: Computer Graphic with Blender
+
+18
+
+Timeline working rhythm for the classroom
+
+Timeline
+
+Manual timeline view
+
+1. Set frame 1 and insert the first key (pressing I).
+2. Jump to the end frame and insert the second key.
+3. Scrub, play, stop, adjust, and repeat.
+4. Keep playback focused on whether timing and readability are correct — not on final render
+quality.
+
+Engineering and Computer Graphics • Module: Computer Graphic with Blender
+
+19
+
+Step 5 — Set render size, frame rate, and frame range
+
+Render setup
+
+Classroom defaults to stabilize the pipeline
+
+• Use a modest resolution for
+previews; scale up only after motion
+is correct.
+• Pick one frame rate and keep it
+fixed across the shot.
+• Define Start and End before final
+rendering so duration is explicit.
+A short, clean animation beats a long,
+partially broken one.
+
+Engineering and Computer Graphics • Module: Computer Graphic with Blender
+
+Format
+
+Frame Range
+
+• Preview recommendation: keep output small
+enough for quick iteration.
+• Check duration by frames ÷ fps before pressing
+Render Animation.
+
+20
+
+Output strategy — render frames first, encode video second
+
+Render output
+
+Recommended classroom workflow
+
+1. Choose an output folder and clear
+naming pattern.
+2. Render as image sequence first for
+safety and restartability.
+3. After frames are correct, encode to
+a video container.
+
+If rendering stops halfway, image
+sequence workflow lets you resume
+instead of losing the whole movie file.
+
+Engineering and Computer Graphics • Module: Computer Graphic with Blender
+
+Output panel
+
+Encoding panel
+
+Frames first = safer for long renders and easier to resume.
+Video last = faster experimentation with codecs and file size.
+
+21
+
+Fast troubleshooting checklist during practice
+Import
+
+Render
+
+Animation
+
+• Object not visible →
+frame selected.
+• Wrong orientation →
+revisit import axis or
+object forward direction.
+• Scale absurd → fix
+once, then apply scale.
+
+• Too dark → adjust
+world/light first.
+• Flat look → check
+material roughness and
+light direction.
+• Preview too slow →
+lower resolution or use
+faster engine for tests.
+
+• Object off path → clean
+transforms / origin.
+• Motion timing wrong →
+edit keys, not necessarily
+the path shape.
+• Render too long → shorten
+frame range or preview first.
+
+Troubleshoot
+
+Instructor decision rule: debug one variable at a time — visibility, then orientation, then shading, then
+timing, then output.
+
+Engineering and Computer Graphics • Module: Computer Graphic with Blender
+
+22
+
+In-class checkpoint and mini assessment
+Each student should show the instructor:
+
+Quick oral questions
+
+1. Imported Dragon object in viewport.
+2. One still render that reads clearly.
+
+• Why is frame sequence safer than
+direct-to-video?
+• What is the difference between path
+shape and timing?
+• Why do we verify one still render
+before full animation?
+
+Engineering and Computer Graphics • Module: Computer Graphic with Blender
+
+Checkpoint
+
+23
+
+Wrap-up and suggested homework extension
+
+Close
+
+Today’s pipeline in one sentence
+Import the mesh cleanly, build one readable scene, animate motion with a path, and output frames safely.
+
+Homework extension ideas
+
+Remember the course connection
+
+• Render a second camera angle of the same dragon
+flight.
+• Try a different world lighting setup and compare
+mood.
+• Refine timing by adjusting path speed instead of
+reshaping the path.
+• If the course later covers rigs, compare object
+motion versus character deformation.
+
+• Transforms and interpolation still
+matter.
+• Lighting and material choices
+change perception.
+• Rendering is the bridge from
+geometry to communication.
+
+Engineering and Computer Graphics • Module: Computer Graphic with Blender
+
+24
+
+

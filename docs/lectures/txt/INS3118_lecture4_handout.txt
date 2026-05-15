@@ -1,0 +1,887 @@
+Engineering & Computer Graphics
+Lecture 4 — Texture and Sampling
+Focus:
+• texture mapping,
+• interpolation,
+• mipmaps,
+• aliasing,
+• practice
+Lecturer: Van-Tien Giap, Ph.D.
+tiengv@vnu.edu.vn +84865276899
+Faculty of engineering and technology
+
+Outcomes & lecture roadmap
+• Explain core concepts: interpolation, mipmaps, aliasing, and pixel footprints
+• Design texture coordinates (UV maps) and reason about distortion & seams
+• Apply practical filtering: bilinear, trilinear mipmapping, anisotropic filtering
+• Practice: implement the texture mapping code and apply texture mapping along with lighting
+
+Engineering & Computer Graphics • Lecture 4
+
+2/30
+
+Why textures and sampling matter
+• Textures add detail—but detail + undersampling causes
+aliasing (jaggies, moiré, shimmer)
+• Rendering is *sampling* a continuous signal (surface
+appearance) onto pixels
+
+Key idea: aliasing is not a “bug” in the
+texture—it is a mismatch between signal
+frequency and sampling rate.
+
+• Texture mapping is a resampling problem, like image scaling:
+minification & magnification
+• Goal: get stable images in motion using filtering and good
+sampling patterns
+aliasing
+
+Engineering & Computer Graphics • Lecture 4
+
+3/30
+
+Texture mapping pipeline (what is being computed?)
+• At each shaded point, compute texture coordinates
+(u,v) via a texture coordinate function φ
+• Lookup texel(s) in the texture image to get a texture
+sample (color or data)
+• Combine with shading model (e.g., Lambertian
+diffuse color, roughness, normals)
+
+φ:S→T
+
+Surface S
+(3D)
+
+Texture
+space T
+(u,v)
+
+π : S → Image
+
+Image
+(pixels)
+
+• Two big challenges:
+(1) define φ well,
+(2) filter lookups to control aliasing
+
+Engineering & Computer Graphics • Lecture 4
+
+4/30
+
+Texture lookup basics: texels and nearest sampling
+• A texture is usually an image; each pixel in the texture is a *texel*
+• Nearest-neighbor lookup: choose closest texel to (u,v) (fast but blocky/aliased)
+• Mapping from (u,v) in [0,1]² to texel indices uses image resolution (width, height)
+• In prac ce, the lookup pa ern is irregular but locally coherent → caching ma ers
+u*t.width -0.5
+
+1 Color tex_lookup(Texture t, float u, float v) {
+2
+int i = round(u * t.width - 0.5);
+3
+int j = round(v * t.height - 0.5);
+4
+return t.get_pixel(i, j);
+5 }
+
+Engineering & Computer Graphics • Lecture 4
+
+u*t.width
+
+v*t.height -0.5
+v*t.height
+
+5/30
+
+Texture coordinate functions (UV mapping): what “good” means
+• Bijectivity: ideally one-to-one mapping (unless intentionally repeating patterns)
+• Size distortion: local scale shouldn’t vary wildly across the surface (consistent proportional ratio)
+• Shape distortion: avoid extreme stretching/skewing of local neighborhoods (derivative of φ similar in
+different directions)
+• Continuity: minimize seams; place unavoidable seams in inconspicuous areas
+• For geometry by equation: f(u,v) = (x,y,z) just invert the function: v(u,v) = f-1(x,y,z) result might be good
+• For meshes: you can compute coordinates geometrically or store UVs at vertices
+
+Engineering & Computer Graphics • Lecture 4
+
+6/30
+
+Geometric texture coordinates: planar & projective
+• Planar projection: treat texturing like orthographic
+projection using a matrix Mt
+• Works well for mostly-flat surfaces; fails on closed objects
+(front/back overlap)
+• Projective texture coordinates: like perspective projection
+(matrix Pt)
+• Projective mapping is central to shadow mapping (light as
+a “projector”)
+Orthographic projection
+
+Engineering & Computer Graphics • Lecture 4
+
+Rule of thumb: if the projection direction
+becomes tangent to the surface, distortion
+explodes.
+
+𝑢
+𝑣
+𝜙 𝑥, 𝑦, 𝑧 = 𝑢, 𝑣 𝑤ℎ𝑒𝑟𝑒
+=𝑀
+∗
+1
+
+𝑥
+𝑦
+𝑧
+1
+
+Perspective projection (change Mt to Pt)
+
+7/30
+
+Geometric mappings: spherical and cylindrical
+• Spherical mapping (latitude/longitude): simple, but high distortion near poles
+• Cylindrical mapping: better for column-like shapes; reduces pole-style distortion
+• Both introduce a seam where atan2 wraps from +π to −π
+• When shapes deviate from ideal sphere/cylinder, distortion varies with distance to center/axis
+Sphere map
+
+Engineering & Computer Graphics • Lecture 4
+
+Cylinder map
+
+8/30
+
+Cubemaps: reduce polar distortion (more seams, less stretching)
+• Instead of one rectangle, project directions/points onto 6 cube faces (6 square textures)
+Cube mapping
+
+• Less distortion than spherical mapping; seams occur along cube edges
+• Face choice: use the coordinate with the largest absolute value (|x|,|y|,|z|)
+• Widely used for environment maps (reflection mapping) in interactive graphics
+
++Y
+
+-X
+
++Z
+
++X
+
+-Z
+
+-Y
+
+Engineering & Computer Graphics • Lecture 4
+
+Example cube “net”
+
+9/30
+
+Mesh UVs: store at vertices and interpolate across triangles
+• For triangle meshes, store (u,v) per vertex and interpolate with
+barycentric coordinates (uP = w_A*u_A + w_B*u_B + w_C*u_C)
+• Continuity is automatic on shared-vertex meshes (adjacent triangles
+agree along edges)
+• Injectivity requires triangles not to overlap in texture space
+• Area distortion: triangle areas in UV should be proportional to areas on
+the surface
+• Debug tip: “unfold” the mesh in texture space and inspect triangle
+layout
+
+Texture space
+
+Mesh space
+
+Low shape distortion
+But moderate area distortion
+
+Engineering & Computer Graphics • Lecture 4
+
+10/30
+
+Wrapping modes and texture-space transforms
+• UVs can go outside [0,1]²: handle with *clamp* (edge color) or *wrap/tile* (repeat)
+• Wrap uses remainder/modulo indexing; clamp saturates indices to valid range
+• Modelers often adjust scale/offset/rotation using a 2D transform matrix MT
+• Think of textures as functions defined over the infinite plane (wrapping makes this explicit)
+
+1 // Wrap (tiling)
+2 i = (round(u*w - 0.5)) % w;
+3 j = (round(v*h - 0.5)) % h;
+4
+5 // Clamp
+6 ic = max(0, min(i, w-1));
+7 jc = max(0, min(j, h-1));
+
+Engineering & Computer Graphics • Lecture 4
+
+11/30
+
+Perspective-correct interpolation (1/2): the problem
+• Naïve approach: interpolate (u,v) linearly in screen space → looks wrong
+in perspective
+• Reason: perspective projection is non-linear; the world-space
+interpolation parameter ≠ screen-space parameter
+
+naive
+
+• Symptoms: textures “swim” or warp on receding surfaces
+• Fix: interpolate attributes consistently after perspective divide
+Transform to screen space
+
+1
+interpolate
+
+2
+
+0
+
+1
+
+2
+
+0
+Engineering & Computer Graphics • Lecture 4
+
+12/30
+
+Perspective-correct interpolation (2/2): code
+• Carry attributes through the same projective transform as geometry
+• Linearly interpolate u/w -> us, v/w ->vs, and 1/w-> ws in screen space using barycentric weights
+• Recover u and v per fragment: u = us/ws, v = vs/ws
+• This matches the correct world-space interpolation along projected lines/triangles
+
+1 // Given per-vertex (u,v,w) after view-projection but before divide
+2 us = a*(u0/w0) + b*(u1/w1) + c*(u2/w2);
+3 vs = a*(v0/w0) + b*(v1/w1) + c*(v2/w2);
+4 ws = a*(1/w0) + b*(1/w1) + c*(1/w2);
+5
+6 u = us / ws;
+7 v = vs / ws;
+Engineering & Computer Graphics • Lecture 4
+
+13/30
+
+Continuity & seams: why vertices sometimes must be duplicated
+• Closed surfaces cannot be mapped bijectively and continuously onto one rectangle (topology)
+• Triangles crossing a seam can interpolate the “long way” around texture space
+• Solution: duplicate vertices at seams (same 3D position, different UVs) instead of sharing
+texture coordinate
+• This allows clean interpolation on each side and prevents extreme compression/distortion
+Share texture coordinate at seam
+
+Engineering & Computer Graphics • Lecture 4
+
+duplicate vertex at seam
+
+14/30
+
+Texture antialiasing: pixels have *footprints* in texture space
+• A pixel value (color) in screen space should be an *area average* over that pixel’s area in
+texture space, not a point sample
+• Through projection + texture mapping, a pixel area maps to a footprint in texture space
+• Footprints vary across the image (distance, view angle) and depend on φ distortions
+• Goal: compute filtered texture sample ≈ average of texture over the footprint
+Screen space
+
+Texture space
+Foot print
+of pixel
+
+ψ = φ ∘ π⁻¹ maps image → surface →
+texture (to get exact footprints).
+=> This average is too expensive
+
+Engineering & Computer Graphics • Lecture 4
+
+15/30
+
+Footprint approximation using derivatives (Jacobian J)
+• Approximate ψ locally as linear:
+ψ(x) = ψ(x0) + J(x - x0)
+
+• J contains partial derivatives du/dx,
+du/dy, dv/dx, dv/dy
+• A unit pixel square maps to a
+parallelogram spanned by vectors uₓ and
+uᵧ
+ux = (du/dx, dv/dx) and
+uy = (du/dy, dv/dy)
+
+• Large deriva ves → large footprints;
+skew/unequal lengths → anisotropic
+footprints
+Engineering & Computer Graphics • Lecture 4
+
+Quality vs speed: many filters approximate
+the true footprint average differently.
+
+16/30
+
+Reconstruction (magnification): bilinear interpolation
+• When footprint < 1 texel, we magnify: need smooth reconstruction between texels
+• Bilinear interpolation reads the 4 neighboring texels and blends by fractional offsets
+• High-quality large filters are expensive because texture lookups are irregular
+• Hardware texture units accelerate bilinear filtering with dedicated caches
+1 Color tex_bilinear(Texture t, float u, float v) {
+2 float up = u * t.width - 0.5;
+3 float vp = v * t.height - 0.5;
+4 int left_point = floor(up), right_point = i0 + 1;
+5 int top_point = floor(vp), bot_point = j0 + 1;
+6 float f_left = up - left_point, f_top = vp - top_point;
+7 float f_right= 1-f_left, f_bot = 1 – f_top
+8 return f_left*f_top*t[left_point][top_point]
++ f_left*f_bot*t[left_point][bot_point]
++ f_right*f_top*t[right_point][top_point]
++ f_right*f_bot*tright_point][bot_point]
+9 }
+
+Engineering & Computer Graphics • Lecture 4
+
+17/30
+
+Mipmapping (minification): precompute averages at multiple scales
+• When footprint covers many texels, we need an
+average—point sampling aliases badly
+• A mipmap is an image pyramid: level 0 is full resolution;
+each next level is 2× downsampled
+• A texel at level k represents an average over roughly a
+2ᵏ × 2ᵏ area of level 0
+
+Level 0
+Level 1 = level0/4
+Level 2 = level1/4
+Level 3
+Level 4
+
+• This makes large-area averaging fast: sample from an
+appropriate mip level
+Image pyramid (mipmap)
+
+“Multum in parvo”: much in a small
+space (why it’s called mip).
+
+Engineering & Computer Graphics • Lecture 4
+
+18/30
+
+Choosing mip levels: D ≈ max(|uₓ|, |uᵧ|) and trilinear blending
+• Estimate footprint width D in texels (common choice: longest edge length)
+• Choose level k ≈ log₂(D) (texels at level k cover width 2ᵏ in level 0)
+• Nearest-level sampling causes visible transitions; trilinear blends between k0 and k1
+• Limita on: footprints can be elongated → square mip texels can over-blur
+Color mipmap_sample_trilinear(Texture
+mip[], float u, float v,
+matrix J) {
+D = max_column_norm(J)
+k = log2(D)
+k0 = floor(k); k1 = k0 + 1
+a = k1 - k; b = 1 - a
+c0 = tex_sample_bilinear(mip[k0], u, v)
+c1 = tex_sample_bilinear(mip[k1], u, v)
+return a*c0 + b*c1
+}
+
+Engineering & Computer Graphics • Lecture 4
+
+19/30
+
+Anisotropic filtering: handle elongated footprints at grazing angles
+• Grazing angles produce anisotropic footprints (long, thin regions in texture space)
+• Basic mipmapping approximates with a square → excessive blur along one direc on
+• Anisotropic filtering: pick mip level from the *short* axis, then take multiple taps along the long axis
+• Common in GPUs; improves floor/road textures dramatically in real-time rendering
+
+Mental model: “and prefilter
+based on the short axis, then
+manually average many lookups
+along the long axis,”.
+
+Engineering & Computer Graphics • Lecture 4
+
+20/30
+
+Practice texture mapping and lighting
+Modify the week 3 project to complete following tasks:
+• Task A: render a textured plane with a detail-rich image,
+nearest filter
+• Task B: compare nearest vs bilinear; observe magnification
+artifacts
+• Task C: enable mipmaps + trilinear; observe reduced aliasing
+in minification
+• Task D: enable anisotropic filtering; compare sharpness at
+grazing angles
+Deliverable: 3 screenshots + a short note
+explaining what changed and why.
+
+Engineering & Computer Graphics • Lecture 4
+
+21/30
+
+Task A: render a textured plane with a detail-rich image
+No. What
+
+Where
+
+1
+
+stb_image include
+
+Top of file, after existing includes
+
+2
+
+Declare anisotropic enums
+
+After includes
+
+3
+
+loadTexture2D() function
+
+Before main()
+
+4
+
+Cube vertex data (add UVs)
+
+Inside createCubeVAO(), add u,v for
+each vertex, add buffer
+
+5
+
+Vertex shader (add aTexCoord, vTexCoord)
+
+Insert UVs to kVS_part1 string
+
+6
+
+Fragment shader (add uTexture, sampling)
+
+Insert texture sampling to kFS_part1
+string
+
+7
+
+loadTexture(...) call
+
+In main(), after createCubeVAO()
+
+8
+
+glGetUniformLocation(prog, "uTexture")
+
+In main(), with other uniform lookups
+
+9
+
+glActiveTexture + glBindTexture +
+glUniform1i
+
+In render loop, before glDrawArrays
+
+Engineering & Computer Graphics • Lecture 4
+
+21/30
+
+Task A: render a textured plane with a detail-rich image
+No.
+
+What
+
+How
+
+1
+
+stb_image include
+
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
+
+2
+
+Declare anisotropic
+enums
+
+#ifndef GL_TEXTURE_MAX_ANISOTROPY
+#define GL_TEXTURE_MAX_ANISOTROPY 0x84FE
+#endif
+#ifndef GL_MAX_TEXTURE_MAX_ANISOTROPY
+#define GL_MAX_TEXTURE_MAX_ANISOTROPY 0x84FF
+#endif
+
+Engineering & Computer Graphics • Lecture 4
+
+21/30
+
+Task A: render a textured plane with a detail-rich image
+No.
+
+What
+
+How
+static GLuint loadTexture2D(const char* path) {
+//declare and bind tex variable
+GLuint tex;
+glGenTextures(1, &tex);
+glBindTexture(GL_TEXTURE_2D, tex);
+
+3
+
+loadTexture2D
+function
+defition
+
+// --- Wrapping --glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+// --- Filtering --// Minification: nearest
+glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+// Magnification: nearest
+glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+
+Engineering & Computer Graphics • Lecture 4
+
+21/30
+
+Task A: render a textured plane with a detail-rich image
+No.
+
+3
+
+What
+
+How
+//(cont.)
+// --- Load image --int width, height, channels;
+stbi_set_flip_vertically_on_load(true); // OpenGL UV origin is bottom-left
+unsigned char* data = stbi_load(path, &width, &height, &channels, 0);
+if (!data) {
+std::cerr << "Failed to load texture: " << path << "\n";
+return 0;
+}
+GLenum fmt = (channels == 4) ? GL_RGBA : GL_RGB;
+glTexImage2D(GL_TEXTURE_2D, 0, fmt, width, height, 0, fmt, GL_UNSIGNED_BYTE, data);
+
+loadTexture2D
+function
+defition
+
+// --- Auto-generate mipmaps --// This creates all mip levels needed for trilinear filtering
+glGenerateMipmap(GL_TEXTURE_2D);
+
+}
+
+stbi_image_free(data);
+glBindTexture(GL_TEXTURE_2D, 0);
+return tex;
+
+Engineering & Computer Graphics • Lecture 4
+
+21/30
+
+Task A: render a textured plane with a detail-rich image
+No.
+
+4
+
+What
+
+How
+
+Cube vertex
+data (add UVs)
+
+static GLuint createCubeVAO() {
+float v[] = {
+// pos
+// normal // UV
+// +X
+1,-1,-1, 1,0,0, 0,0, 1, 1,-1, 1,0,0, 1,0, 1, 1, 1, 1,0,0, 1,1,
+1,-1,-1, 1,0,0, 0,0, 1, 1, 1, 1,0,0, 1,1, 1,-1, 1, 1,0,0, 0,1,
+// -X
+-1,-1, 1, -1,0,0, 0,0, -1, 1, 1, -1,0,0, 1,0, -1, 1,-1, -1,0,0, 1,1,
+-1,-1, 1, -1,0,0, 0,0, -1, 1,-1, -1,0,0, 1,1, -1,-1,-1, -1,0,0, 0,1,
+// +Y
+-1, 1,-1, 0,1,0, 0,0, 1, 1,-1, 0,1,0, 1,0, 1, 1, 1, 0,1,0, 1,1,
+-1, 1,-1, 0,1,0, 0,0, 1, 1, 1, 0,1,0, 1,1, -1, 1, 1, 0,1,0, 0,1,
+// -Y
+-1,-1, 1, 0,-1,0, 0,0, 1,-1, 1, 0,-1,0, 1,0, 1,-1,-1, 0,-1,0, 1,1,
+-1,-1, 1, 0,-1,0, 0,0, 1,-1,-1, 0,-1,0, 1,1, -1,-1,-1, 0,-1,0, 0,1,
+// +Z
+1,-1, 1, 0,0,1, 0,0, 1, 1, 1, 0,0,1, 1,0, -1, 1, 1, 0,0,1, 1,1,
+1,-1, 1, 0,0,1, 0,0, -1, 1, 1, 0,0,1, 1,1, -1,-1, 1, 0,0,1, 0,1,
+// -Z
+-1,-1,-1, 0,0,-1, 0,0, -1, 1,-1, 0,0,-1, 1,0, 1, 1,-1, 0,0,-1, 1,1,
+-1,-1,-1, 0,0,-1, 0,0, 1, 1,-1, 0,0,-1, 1,1, 1,-1,-1, 0,0,-1, 0,1,
+};
+
+Engineering & Computer Graphics • Lecture 4
+
+21/30
+
+Task A: render a textured plane with a detail-rich image
+No.
+
+What
+
+How
+//cont.
+GLuint vao=0, vbo=0;
+glGenVertexArrays(1, &vao);
+glGenBuffers(1, &vbo);
+glBindVertexArray(vao);
+glBindBuffer(GL_ARRAY_BUFFER, vbo);
+glBufferData(GL_ARRAY_BUFFER, sizeof(v), v, GL_STATIC_DRAW);
+
+4
+
+Cube vertex
+data (add UVs)
+
+// location 0: position (3 floats)
+glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8*sizeof(float), (void*)0);
+glEnableVertexAttribArray(0);
+// location 1: normal (3 floats)
+glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8*sizeof(float),
+(void*)(3*sizeof(float)));
+glEnableVertexAttribArray(1);
+// location 2: UV (2 floats) <-- NEW
+glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8*sizeof(float),
+(void*)(6*sizeof(float)));
+glEnableVertexAttribArray(2);
+glBindVertexArray(0);
+return vao;
+}
+
+Engineering & Computer Graphics • Lecture 4
+
+21/30
+
+Task A: render a textured plane with a detail-rich image
+No.
+
+What
+
+How
+static const char* kVS_part1 = R"GLSL(
+#version 330 core
+layout(location=0) in vec3 aPos;
+layout(location=1) in vec3 aNormal;
+layout(location=2) in vec2 aTexCoord; // NEW
+
+5
+
+Vertex shader
+(add
+aTexCoord,
+vTexCoord)
+
+uniform mat4 uM;
+uniform mat4 uV;
+uniform mat4 uP;
+uniform mat3 uNormalMat;
+out vec3 vWorldPos;
+out vec3 vWorldNormal;
+out vec2 vTexCoord;
+
+// NEW
+
+void main() {
+vec4 wp = uM * vec4(aPos, 1.0);
+vWorldPos = wp.xyz;
+vWorldNormal = normalize(uNormalMat * aNormal);
+vTexCoord = aTexCoord;
+// NEW
+gl_Position = uP * uV * wp;
+}
+)GLSL";
+Engineering & Computer Graphics • Lecture 4
+
+21/30
+
+Task A: render a textured plane with a detail-rich image
+No.
+
+What
+
+How
+static const char* kFS_part1 = R"GLSL(
+#version 330 core
+in vec3 vWorldPos;
+in vec3 vWorldNormal;
+in vec2 vTexCoord;
+// NEW
+out vec4 FragColor;
+
+6
+
+Fragment
+shader (add
+uTexture,
+sampling)
+
+uniform sampler2D uTexture;
+uniform vec3 uViewPos;
+uniform vec3 uLightPos;
+uniform vec3 uLightColor;
+uniform vec3 uAmbientColor;
+uniform vec3 uKa;
+uniform vec3 uKd;
+uniform vec3 uKs;
+uniform float uShininess;
+uniform bool uUseBlinn;
+uniform bool uDebugNormals;
+
+Engineering & Computer Graphics • Lecture 4
+
+// NEW
+
+21/30
+
+Task A: render a textured plane with a detail-rich image
+No.
+
+6
+
+What
+
+Fragment
+shader (add
+uTexture,
+sampling)
+
+How
+void main() {
+vec3 N = normalize(vWorldNormal);
+if (uDebugNormals) {
+FragColor = vec4(N * 0.5 + 0.5, 1.0);
+return; }
+vec3 texColor = texture(uTexture, vTexCoord).rgb; // NEW: sample texture
+vec3 L = normalize(uLightPos - vWorldPos);
+vec3 V = normalize(uViewPos - vWorldPos);
+vec3 ambient = uKa * uAmbientColor * texColor; // texture modulates ambient (MOD)
+float ndotl = max(dot(N, L), 0.0);
+vec3 diffuse = uKd * ndotl * uLightColor * texColor; // texture modulates diffuse (MOD)
+float spec = 0.0;
+if (ndotl > 0.0) {
+if (uUseBlinn) {
+vec3 H = normalize(L + V);
+spec = pow(max(dot(N, H), 0.0), uShininess);
+} else {
+vec3 R = reflect(-L, N);
+spec = pow(max(dot(R, V), 0.0), uShininess); }
+}
+vec3 specular = uKs * spec * uLightColor;
+// specular stays white
+FragColor = vec4(ambient + diffuse + specular, 1.0);}
+)GLSL";
+21/30
+
+Task A: render a textured plane with a detail-rich image
+No. What
+
+How
+//after declaration of cubeVAO
+GLuint texture = loadTexture2D("your_image.png"); // put your image path
+here
+
+7
+
+loadTexture(..
+.) call
+
+8
+
+connect
+//after calling glUseProgram(prog)
+uTexture var GLint uTexture = glGetUniformLocation(prog, "uTexture");
+
+9
+
+Activate,
+bind and
+transfer
+value
+
+//before glBindVertexArray(cubeVAO);
+glActiveTexture(GL_TEXTURE0);
+glBindTexture(GL_TEXTURE_2D, texture);
+glUniform1i(uTexture, 0); // tell the shader to use texture unit 0
+
+21/30
+
+Task B: compare nearest vs bilinear; observe magnification artifacts
+No. What
+
+1
+
+Modify the
+loadTexture2
+D function
+
+How
+// --- Filtering --- modified
+// Minification: linear (linear interpolation)
+glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+// Magnification: linear (no mipmaps used when magnifying)
+glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+21/30
+
+Task C: enable mipmaps + trilinear
+No. What
+
+1
+
+Modify the
+loadTexture2
+D function
+
+How
+// --- Filtering --- modified
+// Minification: trilinear (linear mipmap interpolation + linear within mip)
+glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER,
+GL_LINEAR_MIPMAP_LINEAR);
+// Magnification: bilinear (no mipmaps used when magnifying)
+glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER,
+GL_LINEAR);
+
+21/30
+
+Task D: enable anisotropic filtering; compare sharpness at grazing angles
+No. What
+
+How
+//adding this
+
+1
+
+Modify the
+loadTexture2
+D function
+
+// --- Anisotropic filtering --float maxAniso = 1.0f;//initiating maxAniso level
+glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY, &maxAniso); //get
+max allowable Aniso level
+glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY,
+maxAniso);
+
+21/30
+
+Wrap-up: what you should be able to do after this lecture
+• Explain aliasing and how filtering (bilinear, mipmaps, anisotropic) reduces it
+• Design/diagnose UV mappings: distortion, wrapping modes, seams, perspective correctness
+• Compute pixel footprints conceptually using derivatives; pick an appropriate filter
+• implement UV mapping and lighting
+
+Homework:
+1) Positioning the image on the selected wall
+2) Import STL file and glue the image on specific position of it.
+Engineering & Computer Graphics • Lecture 4
+
+30/30
+
+
