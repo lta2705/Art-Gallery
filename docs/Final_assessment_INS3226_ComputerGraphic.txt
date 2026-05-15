@@ -1,0 +1,403 @@
+EXAMINATION
+Code: 01
+Program: ICE
+
+Lecturer’s Signature
+
+Course Code: INS3118
+Course Title: Engineering and Computer
+Graphics
+Level: Bachelor
+
+Giáp Văn Tiến
+
+Time allowed:
+
+Date: ……………………………
+
+Date:
+
+Department’s Signature
+
+Time: 10 minutes for video presentation and
+5 minutes for Q&A
+
+Date: ……………………………
+
+Instructions to students:
+1. Closed/Opened book examination: Opened books
+2. Answers are to be written in the answer provided.
+3. Students are NOT permitted to retain this examination paper
+
+This exam paper contains 5 sheets, including the cover.
+
+PROJECT REQUIREMENTS
+1. Instructions:
+- Each group should consist of maximum 3 students.
+- Each group is expected to select UNIQUE PROJECT in Table 1 to DEVELOP
+
+following the requirements.
+Table 1: Project titles:
+No.
+
+Theme
+
+Room
+Layout
+Variation
+
+Lighting
+Twist
+
+Camera/Texture
+Twist
+
+1
+
+The Art
+Gallery
+
+Long
+rectangular
+hallway.
+
+Multiple dim
+point lights.
+
+Must display 3 different
+images on 3 different
+walls.
+
+2
+
+The Night
+Watch
+
+Square room
+with central
+pillar.
+
+Light bulb
+"flickers"
+(random
+intensity).
+
+CCTV view has a
+"Green Night Vision"
+shader effect.
+
+3
+
+The Mirror
+Maze
+
+L-shaped
+room.
+
+Light is a
+Spotlight attached
+to the head.
+
+One wall must be
+"shiny" (high specular)
+to act as a mirror.
+First-person view has a
+"fisheye" lens distortion
+or at least one furniture
+(table/chair)
+
+4
+
+The Disco
+
+Hexagonal
+room.
+
+Light changes
+color over time
+(RGB cycle).
+
+5
+
+The
+Laboratory
+
+Two small
+rooms
+connected by
+a door.
+
+One light in each
+room.
+
+The image on the wall
+is "Semi-transparent"
+(Alpha Blending).
+
+The Deep
+Sea
+
+Circular room
+(Approximate
+d by
+cylinders).
+
+Light is
+blue/murky with
+high attenuation.
+
+The CCTV camera
+"shakes" slightly as if
+underwater.
+
+The
+Warehouse
+
+Room filled
+with 3 static
+crates (cubes).
+
+Light is placed as
+table lamp
+
+Must use
+"Mipmapping" for the
+wall texture to prevent
+moiré.
+
+8
+
+The Space
+Station
+
+Room with a
+"window"
+(transparent
+texture).
+
+Light source is
+"Sunlight"
+(Directional
+Light).
+
+The "Head" ball can fly
+up and down (Z-axis
+movement).
+
+9
+
+The
+Haunted
+House
+
+Narrow
+corridor with
+a sharp turn.
+
+Light follows a
+predefined path
+(moving light).
+
+Wall texture is a
+"Portrait" that changes
+image when clicked.
+
+6
+
+7
+
+The Neon
+Grid
+
+10
+
+Standard
+Room.
+
+No bulb; the
+"Ball" itself is the
+light source.
+
+The floor has a "Grid"
+texture instead of a
+solid color.
+
+- Project requirements: create an interactive graphics, that simulates a room with
+
+light source inside, the wall has picture/mirror on it. One ball moved as user
+pressing keyboard and first-person view changes direction by mouse. The view
+can be from a CCTV at the corner of the room, which can change the direction.
+- All students are required to submit their full project materials, including compiled
+
+(build) folder to be run in Windows OS, source code, 3D model files, presentation
+files, via Google Drive at least three days before the exam date.
+- Students are required to register their chosen problem for the final exam in the 7th
+
+week of the semester.
+2. Report
+
+The project report includes the following sections:
+PROJECT STATEMENT
+MEMBER CONTRIBUTION TABLE
+CONTENT
+LIST OF FIGURES
+LIST OF TABLES
+NOMENCLATURES
+GLOSSARY
+Chapter 1. INTRODUCTION
+1.1. Introduction to project
+1.2. Motivation
+1.3. Aims and Objectives
+1.4. Methodology
+1.5. Report outline
+Chapter 2 Geometry & Environment
+2.1. 3D modeling
+2.2. Texture mapping (image or mirror handling)
+2.3. Asset loading
+Chapter 3. Navigation & Viewports
+3.1. Coordinate Spaces
+3.2. The “head” ball controller
+3.3. Dual camera toggle (between first person and third person view)
+Chapter 5. Illumination & shading & shadow
+4.1. Point Light
+4.2. Shader
+4.3. Attenuation
+REFERENCES
+APPENDIX
+
++ Source code
++ AI prompt
+3. Presentation
+- Each group has 10 minutes to present and 5 minutes for Questions and Answers.
+- Summarizing your work using MS PowerPoint, which should include the
+following parts:
+1) Introduction:
+- Begin your presentation with an introduction.
+- Provide context for your project.
+- Mention the main objective of your presentation.
+- Highlight any challenges or issues associated with the topic of your group.
+2) Methods:
+- Explain the methodology or approach you have taken to solve the problem.
+- Describe the techniques, algorithms, or tools used in your project.
+- Provide a high-level overview of your project's architecture or workflow.
+3) Results:
+- Present the output of your project.
+- Share any data or experimental results you have obtained.
+- Run product demo.
+4) Conclusion:
+- Summarize the key takeaways from your presentation.
+- Discuss the significance of your outcomes in relation to the problem statement.
+- Mention any insights or lessons learned during the project.
+5) Future Directions:
+- Suggest potential areas for further development or research.
+- Share ideas for extending or improving your project.
+- Identify any unanswered questions or limitations that could be addressed in the future.
+
+ASSESSMENT RUBRIC
+Quality level
+Criteria
+
+Create object
+
+Share
+
+20%
+
+very good
+
+good
+
+pass
+
+failed
+
+10 – 8.5
+
+8.4 – 7.0
+
+6.9 – 5.0
+
+4.9 – 0.0
+
+-
+
+-
+
+can not draw
+the object
+
+draw object
+with correct
+dimension
+
+20%
+
+object move
+exact the same
+as requirement
+
+-
+
+-
+
+cannot make
+object move or
+direction with
+mouse and
+keyboard
+
+20%
+
+Correct
+antialiasing and
+global
+illumination
+shadow
+
+-
+
+-
+
+cannot apply
+lighting and
+shadow
+
+Integration &
+Logic
+
+10%
+
+The code is
+organized;
+variables are
+named clearly;
+modules talk to
+each other.
+
+-
+
+-
+
+Code is a mess
+
+Answer
+question
+
+30%
+
+Answer all
+questions
+
+-
+
+-
+
+Answer < 1/3
+of all questions
+
+Mathematical
+Control
+
+Visual Realism
+
+

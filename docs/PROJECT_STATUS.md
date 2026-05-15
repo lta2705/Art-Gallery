@@ -12,13 +12,24 @@ Dự án là một ứng dụng triển lãm nghệ thuật 3D, được chuyể
 - **Migration**: Chuyển đổi thành công toàn bộ logic hiển thị và vòng lặp sự kiện sang Bevy.
 - **Collision Fix**: Khắc phục lỗi rơi tự do bằng cách lót một mặt sàn cố định (Manual Floor Collider) và bật tính năng **CCD** cho người chơi.
 - **Mesh Analysis**: Tích hợp module `read_bin` để phân tích kích thước thực tế của các model 3D (`STL`, `OBJ`) ngay khi nạp, giúp căn chỉnh tỷ lệ (scale) chính xác.
+- **Desk_PC Collision**: Thêm `TriMesh` collider cho bàn Desk_PC, player có thể va chạm với bàn.
+- **Tối ưu Collision Desk_PC**: Chuyển sang `Collider::cuboid` từ AABB mesh thay vì `TriMesh` để giảm chi phí collision check.
+- **Player Spawn Refactor**: Player được spawn trong `setup_scene` thay vì chờ mesh load (`setup_colliders`), loại bỏ race condition khi có nhiều `NeedsCollider` entity.
+- **Fall Reset**: Nếu player rơi dưới `y = -5.0`, tự động reset về vị trí ban đầu `(4.0, 0.5, -1.5)`.
+- **Dọn Legacy**: Xóa các file không còn dùng (`scratch_mesh.rs`, `environment.rs`, `shaders/`).
 
 ### 💡 Ánh sáng & Đồ họa
-- **Hệ thống đèn**: 
+- **Hệ thống đèn**:
     - Phân bổ 3 đèn trần rải đều dọc hành lang chính.
-    - Tích hợp model 3D cho chao đèn (`eb_ceiling_light_01.obj`) và bóng đèn phát sáng (emissive).
+    - Thêm **Spotlight chính** tại trung tâm trần nhà, điều khiển bằng phím `L`, `[`/`]`.
+    - Thêm **PointLight thứ 4** tại `(2.0, 3.1, -2.8)` gần lối vào nhánh rẽ (p5/p6) — đổ bóng cho `Desk_PC` và `Art3`.
+    - Tích hợp model 3D cho chao đèn (`eb_ceiling_light_01.obj`) với kích thước scale phù hợp (0.05).
 - **Realistic Shadows**: Kích hoạt **Soft Shadows** (bóng đổ mềm) với thông số `radius` vật lý, giảm `AmbientLight` để tăng độ tương phản.
-- **Điều khiển**: Hỗ trợ phím tắt `L` (Spotlight), `P` (Pointlight), `[` / `]` (Cường độ sáng).
+- **Điều khiển**: Hỗ trợ phím tắt `L` (Spotlight), `P` (Pointlight), `[` / `]` (Cường độ sáng — điều chỉnh cả spotlight và point light đồng thời).
+
+### ⚡ Tối ưu hiệu năng
+- **Auto Shadow theo khoảng cách**: Hệ thống `update_shadows_by_distance` tự động bật/tắt `shadows_enabled` dựa trên khoảng cách player đến từng đèn (ngưỡng 8m). Lights xa player không đổ bóng → giảm số lượng shadow pass mỗi frame.
+- **Giảm Shadow Resolution**: `PointLightShadowMap { size: 1024 }` — giảm từ 2048² xuống 1024² pixels/shadow map (75% less pixel).
 
 ### 🖼️ Nội thất & Trang trí
 - **Khung tranh**: Triển khai hệ thống bọc tranh tự động bằng khung gỗ trang trí (procedural frames).
@@ -37,4 +48,4 @@ Dự án là một ứng dụng triển lãm nghệ thuật 3D, được chuyể
 - **Interactivity**: Thêm tính năng tương tác (ví dụ: nhấn phím để xem thông tin chi tiết về bức tranh).
 
 ---
-*Cập nhật lần cuối: 14/05/2026*
+*Cập nhật lần cuối: 15/05/2026*
